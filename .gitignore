@@ -1,0 +1,46 @@
+# Ignore large remote sensing data folders
+AlphaEarth/
+Land_take_masks/
+PlanetScope/
+Sentinel/
+VHR_google/
+
+# OS / editor artifacts
+.DS_Store
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+
+# Conda / environment
+.env
+.venv/
+*.yaml
+*.yml
+*.conda
+*.lock
+
+# Large or generated files
+*.tif
+*.tiff
+*.npy
+*.npz
+*.csv
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.pt
+*.h5
+*.ckpt
+*.pb
+*.onnx
+
+# Logs and temporary outputs
+logs/
+outputs/
+runs/
+checkpoints/
+wandb/
+tensorboard/
+mlruns/
