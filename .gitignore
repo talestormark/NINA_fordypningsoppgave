@@ -1,4 +1,5 @@
 # Ignore large remote sensing data folders
+data/
 AlphaEarth/
 Land_take_masks/
 PlanetScope/
