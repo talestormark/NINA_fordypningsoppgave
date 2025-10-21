@@ -25,6 +25,18 @@ The user will say things like:
 
 Always confirm what you're about to do before executing.
 
+### ⚠️ IMPORTANT: Compute Resources
+**The user does NOT have GPU or extensive local storage.** Before executing any compute-intensive or storage-heavy operations:
+1. **Warn the user** about resource requirements
+2. **Suggest creating a SLURM script** for HPC execution if needed
+3. **Wait for confirmation** before proceeding
+
+**Steps that may require HPC:**
+- Step 4: Loading all bands for quality checks (memory intensive)
+- Step 5: Processing ALL 55 masks (I/O intensive)
+- Step 6: Creating visualizations with large rasters (memory + storage)
+- Step 8+: Any model training or large-scale data processing
+
 ---
 
 ## Quick Dataset Overview
