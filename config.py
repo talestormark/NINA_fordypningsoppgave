@@ -7,7 +7,7 @@ Configuration file for Land-Take Detection project
 # ============================================================================
 
 # IMPORTANT: User must update this path to point to the actual data location
-DATA_ROOT = "data/raw"  # PLACEHOLDER - UPDATE THIS!
+DATA_ROOT = "data/raw"  
 
 # Example:
 # DATA_ROOT = "/cluster/home/tmstorma/data/landtake"

@@ -17,7 +17,13 @@ from config import DATA_ROOT, FOLDERS, REPORTS_DIR, FIGURES_DIR
 
 def visualize_tile(data_root, refid, save_path):
     """
-    Create 2x3 subplot visualization for a single tile using VHR Google imagery
+    Create 2x2 subplot visualization for a single tile using VHR Google imagery
+
+    Layout:
+    [0,0]: VHR 2018 RGB
+    [0,1]: VHR 2025 RGB
+    [1,0]: Binary mask (land-take areas)
+    [1,1]: VHR 2025 with mask overlay
 
     Args:
         data_root: Root data directory
@@ -30,8 +36,8 @@ def visualize_tile(data_root, refid, save_path):
     vhr_path = data_root / FOLDERS['vhr'] / f"{refid}_RGBY_Mosaic.tif"
     mask_path = data_root / FOLDERS['masks'] / f"{refid}_mask.tif"
 
-    # Create figure
-    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    # Create figure with 2x2 layout
+    fig, axes = plt.subplots(2, 2, figsize=(14, 14))
 
     # Load VHR data (6 bands: 2018 RGB + 2025 RGB)
     with rasterio.open(vhr_path) as src:
@@ -61,44 +67,27 @@ def visualize_tile(data_root, refid, save_path):
             resampling=Resampling.nearest
         )
 
-    # Row 1 - RGB composites
+    # [0,0]: VHR 2018 RGB
     axes[0, 0].imshow(rgb_2018)
-    axes[0, 0].set_title('2018 RGB (VHR Google - 1m)', fontsize=14, fontweight='bold')
+    axes[0, 0].set_title('VHR 2018 RGB (1m resolution)', fontsize=14, fontweight='bold')
     axes[0, 0].axis('off')
 
+    # [0,1]: VHR 2025 RGB
     axes[0, 1].imshow(rgb_2025)
-    axes[0, 1].set_title('2025 RGB (VHR Google - 1m)', fontsize=14, fontweight='bold')
+    axes[0, 1].set_title('VHR 2025 RGB (1m resolution)', fontsize=14, fontweight='bold')
     axes[0, 1].axis('off')
 
-    # RGB difference visualization
-    diff_rgb = rgb_2025 - rgb_2018
-    # Enhance difference for better visualization
-    diff_enhanced = np.clip(diff_rgb * 2 + 0.5, 0, 1)
-    axes[0, 2].imshow(diff_enhanced)
-    axes[0, 2].set_title('RGB Change (Enhanced)', fontsize=14, fontweight='bold')
-    axes[0, 2].axis('off')
-
-    # Row 2 - Masks & change
-    # Mask alone
+    # [1,0]: Binary mask (land-take areas)
     axes[1, 0].imshow(mask, cmap='RdYlGn_r', vmin=0, vmax=1)
-    axes[1, 0].set_title('Land-Take Mask (Resampled to 1m)', fontsize=14, fontweight='bold')
+    axes[1, 0].set_title('Land-Take Mask (Binary)', fontsize=14, fontweight='bold')
     axes[1, 0].axis('off')
 
-    # 2025 RGB with mask overlay
+    # [1,1]: VHR 2025 with mask overlay
     axes[1, 1].imshow(rgb_2025)
     masked_overlay = np.ma.masked_where(mask == 0, mask)
     axes[1, 1].imshow(masked_overlay, cmap='Reds', alpha=0.5, vmin=0, vmax=1)
-    axes[1, 1].set_title('2025 RGB + Mask Overlay', fontsize=14, fontweight='bold')
+    axes[1, 1].set_title('VHR 2025 + Mask Overlay', fontsize=14, fontweight='bold')
     axes[1, 1].axis('off')
-
-    # Grayscale difference
-    gray_2018 = np.mean(rgb_2018, axis=2)
-    gray_2025 = np.mean(rgb_2025, axis=2)
-    diff = gray_2025 - gray_2018
-    im = axes[1, 2].imshow(diff, cmap='RdBu', vmin=-0.3, vmax=0.3)
-    axes[1, 2].set_title('Grayscale Difference (2025 - 2018)', fontsize=14, fontweight='bold')
-    axes[1, 2].axis('off')
-    plt.colorbar(im, ax=axes[1, 2], fraction=0.046, pad=0.04)
 
     # Set overall title
     refid_short = refid[:60] + "..." if len(refid) > 60 else refid
@@ -116,13 +105,30 @@ def visualize_tile(data_root, refid, save_path):
 
 if __name__ == "__main__":
     try:
-        # Load REFID list
+        # Load REFID list (enhanced format with header and metadata table)
         refid_list_file = Path(REPORTS_DIR) / "refid_list.txt"
+        refids = []
         with open(refid_list_file, 'r') as f:
-            refids = [line.strip() for line in f if line.strip()]
+            lines = f.readlines()
+            # Skip header lines, find the metadata table section
+            in_table = False
+            for line in lines:
+                line = line.strip()
+                # Start reading after the column headers line
+                if line.startswith('REFID') and 'Country' in line:
+                    in_table = True
+                    continue
+                # Skip separator lines
+                if line.startswith('-') or line.startswith('='):
+                    continue
+                # Parse REFID lines (they start with 'a')
+                if in_table and line and line.startswith('a'):
+                    # Extract just the REFID (first column)
+                    refid = line.split()[0]
+                    refids.append(refid)
 
         print(f"\nLoaded {len(refids)} REFIDs")
-        print(f"Creating VHR visualizations for first 3 REFIDs...\n")
+        print(f"Creating streamlined 2×2 VHR visualizations for first 3 REFIDs...\n")
         print("=" * 80)
 
         # Visualize first 3 REFIDs
@@ -143,8 +149,10 @@ if __name__ == "__main__":
                 traceback.print_exc()
 
         print("\n" + "=" * 80)
-        print("\n✅ VHR tile visualizations complete!")
-        print(f"   Created 3 high-resolution visualizations in: {figures_dir}")
+        print("\n✅ Streamlined VHR tile visualizations complete!")
+        print(f"   Created 3 visualizations (2×2 layout) in: {figures_dir}")
+        print(f"\n   Layout: [VHR 2018] [VHR 2025]")
+        print(f"           [Mask]     [Overlay]")
 
     except Exception as e:
         print(f"\n❌ ERROR: {e}")

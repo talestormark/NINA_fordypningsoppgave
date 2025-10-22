@@ -1,5 +1,9 @@
 """
-Script to check spatial alignment between Sentinel and masks
+Script to check comprehensive spatial alignment across all data sources
+
+Validates:
+1. 10m resolution sources (Sentinel, AlphaEarth, Masks): exact alignment
+2. Higher resolution sources (VHR, PlanetScope): geographic bounds coverage
 """
 
 import sys
@@ -73,69 +77,129 @@ def compare_transforms(transform1, transform2, tolerance=1e-10):
 
 def check_alignment(refid, data_root):
     """
-    Check spatial alignment for a single REFID
+    Check comprehensive spatial alignment for a single REFID across all sources
 
     Args:
         refid: The REFID string
         data_root: Root data directory
 
     Returns:
-        dict: Alignment check results
+        dict: Alignment check results for all source pairs
     """
     data_root = Path(data_root)
 
-    # Construct file paths
+    # Construct file paths for all sources
     sentinel_path = data_root / FOLDERS['sentinel'] / f"{refid}_RGBNIRRSWIRQ_Mosaic.tif"
+    planetscope_path = data_root / FOLDERS['planetscope'] / f"{refid}_RGBQ_Mosaic.tif"
+    vhr_path = data_root / FOLDERS['vhr'] / f"{refid}_RGBY_Mosaic.tif"
+    alphaearth_path = data_root / FOLDERS['alphaearth'] / f"{refid}_VEY_Mosaic.tif"
     mask_path = data_root / FOLDERS['masks'] / f"{refid}_mask.tif"
 
     # Check files exist
+    missing_files = []
     if not sentinel_path.exists():
-        return {'error': f"Sentinel file not found: {sentinel_path.name}"}
+        missing_files.append('Sentinel')
+    if not planetscope_path.exists():
+        missing_files.append('PlanetScope')
+    if not vhr_path.exists():
+        missing_files.append('VHR')
+    if not alphaearth_path.exists():
+        missing_files.append('AlphaEarth')
     if not mask_path.exists():
-        return {'error': f"Mask file not found: {mask_path.name}"}
+        missing_files.append('Mask')
 
-    # Get spatial info
+    if missing_files:
+        return {'error': f"Missing files: {', '.join(missing_files)}"}
+
+    # Get spatial info for all sources
     sentinel_info = get_raster_spatial_info(sentinel_path)
+    planetscope_info = get_raster_spatial_info(planetscope_path)
+    vhr_info = get_raster_spatial_info(vhr_path)
+    alphaearth_info = get_raster_spatial_info(alphaearth_path)
     mask_info = get_raster_spatial_info(mask_path)
 
-    # Compare CRS
-    crs_match = sentinel_info['crs'] == mask_info['crs']
+    results = {'refid': refid}
 
-    # Compare bounds
-    bounds_aligned, bounds_diffs, bounds_max_diff = compare_bounds(
-        sentinel_info['bounds'],
-        mask_info['bounds'],
-        tolerance=0.0001
+    # === CHECK 1: 10m resolution sources (Sentinel, AlphaEarth, Masks) - Must match exactly ===
+
+    # Sentinel ↔ Mask alignment
+    sentinel_mask_crs = sentinel_info['crs'] == mask_info['crs']
+    sentinel_mask_bounds_aligned, sentinel_mask_bounds_diffs, sentinel_mask_bounds_max = compare_bounds(
+        sentinel_info['bounds'], mask_info['bounds'], tolerance=0.0001
+    )
+    sentinel_mask_transform, sentinel_mask_transform_diffs, sentinel_mask_transform_max = compare_transforms(
+        sentinel_info['transform'], mask_info['transform']
+    )
+    sentinel_mask_dims = (sentinel_info['width'] == mask_info['width'] and
+                          sentinel_info['height'] == mask_info['height'])
+    sentinel_mask_aligned = (sentinel_mask_crs and sentinel_mask_bounds_aligned and
+                            sentinel_mask_transform and sentinel_mask_dims)
+
+    # Sentinel ↔ AlphaEarth alignment
+    sentinel_alpha_crs = sentinel_info['crs'] == alphaearth_info['crs']
+    sentinel_alpha_bounds_aligned, sentinel_alpha_bounds_diffs, sentinel_alpha_bounds_max = compare_bounds(
+        sentinel_info['bounds'], alphaearth_info['bounds'], tolerance=0.0001
+    )
+    sentinel_alpha_transform, sentinel_alpha_transform_diffs, sentinel_alpha_transform_max = compare_transforms(
+        sentinel_info['transform'], alphaearth_info['transform']
+    )
+    sentinel_alpha_dims = (sentinel_info['width'] == alphaearth_info['width'] and
+                          sentinel_info['height'] == alphaearth_info['height'])
+    sentinel_alpha_aligned = (sentinel_alpha_crs and sentinel_alpha_bounds_aligned and
+                             sentinel_alpha_transform and sentinel_alpha_dims)
+
+    # === CHECK 2: High-resolution sources (VHR, PlanetScope) - Bounds coverage only ===
+
+    # VHR ↔ PlanetScope bounds coverage
+    vhr_planet_crs = vhr_info['crs'] == planetscope_info['crs']
+    vhr_planet_bounds_aligned, vhr_planet_bounds_diffs, vhr_planet_bounds_max = compare_bounds(
+        vhr_info['bounds'], planetscope_info['bounds'], tolerance=0.001  # More lenient for different resolutions
     )
 
-    # Compare transforms
-    transform_match, transform_diffs, transform_max_diff = compare_transforms(
-        sentinel_info['transform'],
-        mask_info['transform']
-    )
+    # === CHECK 3: All sources CRS match ===
+    all_crs = [sentinel_info['crs'], planetscope_info['crs'], vhr_info['crs'],
+               alphaearth_info['crs'], mask_info['crs']]
+    all_crs_match = len(set(str(crs) for crs in all_crs)) == 1
 
-    # Compare dimensions
-    dims_match = (sentinel_info['width'] == mask_info['width'] and
-                  sentinel_info['height'] == mask_info['height'])
+    # === Store results ===
+    results.update({
+        # 10m resolution group
+        'sentinel_mask_aligned': sentinel_mask_aligned,
+        'sentinel_mask_crs': sentinel_mask_crs,
+        'sentinel_mask_bounds': sentinel_mask_bounds_aligned,
+        'sentinel_mask_bounds_max_diff': sentinel_mask_bounds_max,
+        'sentinel_mask_transform': sentinel_mask_transform,
+        'sentinel_mask_dims': sentinel_mask_dims,
 
-    # Overall alignment
-    fully_aligned = crs_match and bounds_aligned and transform_match and dims_match
+        'sentinel_alpha_aligned': sentinel_alpha_aligned,
+        'sentinel_alpha_crs': sentinel_alpha_crs,
+        'sentinel_alpha_bounds': sentinel_alpha_bounds_aligned,
+        'sentinel_alpha_bounds_max_diff': sentinel_alpha_bounds_max,
+        'sentinel_alpha_transform': sentinel_alpha_transform,
+        'sentinel_alpha_dims': sentinel_alpha_dims,
 
-    return {
-        'refid': refid,
-        'crs_match': crs_match,
-        'sentinel_crs': str(sentinel_info['crs']),
-        'mask_crs': str(mask_info['crs']),
-        'bounds_aligned': bounds_aligned,
-        'bounds_max_diff': bounds_max_diff,
-        'bounds_diffs': bounds_diffs,
-        'transform_match': transform_match,
-        'transform_max_diff': transform_max_diff,
-        'dims_match': dims_match,
+        # High-resolution group
+        'vhr_planet_bounds_aligned': vhr_planet_bounds_aligned,
+        'vhr_planet_crs': vhr_planet_crs,
+        'vhr_planet_bounds_max_diff': vhr_planet_bounds_max,
+
+        # Overall
+        'all_crs_match': all_crs_match,
+        'crs_value': str(sentinel_info['crs']),
+
+        # Dimensions for reference
         'sentinel_dims': f"{sentinel_info['width']}x{sentinel_info['height']}",
+        'planetscope_dims': f"{planetscope_info['width']}x{planetscope_info['height']}",
+        'vhr_dims': f"{vhr_info['width']}x{vhr_info['height']}",
+        'alphaearth_dims': f"{alphaearth_info['width']}x{alphaearth_info['height']}",
         'mask_dims': f"{mask_info['width']}x{mask_info['height']}",
-        'fully_aligned': fully_aligned
-    }
+
+        # Overall pass/fail
+        'all_checks_passed': (sentinel_mask_aligned and sentinel_alpha_aligned and
+                             vhr_planet_bounds_aligned and all_crs_match)
+    })
+
+    return results
 
 
 if __name__ == "__main__":
@@ -143,10 +207,18 @@ if __name__ == "__main__":
         # Load REFID list
         refid_list_file = Path(REPORTS_DIR) / "refid_list.txt"
         with open(refid_list_file, 'r') as f:
-            refids = [line.strip() for line in f if line.strip()]
+            lines = [line.strip() for line in f if line.strip()]
 
-        print(f"\nLoaded {len(refids)} REFIDs")
-        print(f"Checking spatial alignment for first 5 REFIDs...\n")
+        # Parse enhanced REFID list format
+        refids = []
+        for line in lines:
+            if (line.startswith('a') or line.startswith('-')) and '_' in line and len(line) > 20:
+                refid = line.split()[0]
+                if refid not in refids:
+                    refids.append(refid)
+
+        print(f"\nLoaded {len(refids)} REFIDs from {refid_list_file}")
+        print(f"Checking comprehensive spatial alignment for first 5 REFIDs...\n")
         print("=" * 80)
 
         # Check first 5 REFIDs
@@ -154,7 +226,7 @@ if __name__ == "__main__":
         refids_to_check = refids[:5]
 
         for refid in refids_to_check:
-            print(f"\nREFID: {refid}")
+            print(f"\nREFID: {refid[:30]}...")
             print("-" * 80)
 
             result = check_alignment(refid, DATA_ROOT)
@@ -166,27 +238,41 @@ if __name__ == "__main__":
 
             results.append(result)
 
-            # Print results
-            print(f"  CRS Match:       {'✓' if result['crs_match'] else '⚠️'}")
-            if not result['crs_match']:
-                print(f"    Sentinel: {result['sentinel_crs']}")
-                print(f"    Mask:     {result['mask_crs']}")
+            # Print results organized by check type
+            print(f"\n  📊 10m Resolution Sources (Sentinel, AlphaEarth, Masks):")
+            print(f"     Sentinel ↔ Mask:       {'✓ ALIGNED' if result['sentinel_mask_aligned'] else '⚠️ MISALIGNED'}")
+            if not result['sentinel_mask_aligned']:
+                print(f"       CRS:       {'✓' if result['sentinel_mask_crs'] else '✗'}")
+                print(f"       Bounds:    {'✓' if result['sentinel_mask_bounds'] else '✗'} (diff: {result['sentinel_mask_bounds_max_diff']:.6f}°)")
+                print(f"       Transform: {'✓' if result['sentinel_mask_transform'] else '✗'}")
+                print(f"       Dims:      {'✓' if result['sentinel_mask_dims'] else '✗'}")
 
-            print(f"  Bounds Aligned:  {'✓' if result['bounds_aligned'] else '⚠️'} (max diff: {result['bounds_max_diff']:.6f}°)")
-            if not result['bounds_aligned']:
-                print(f"    Differences: {result['bounds_diffs']}")
+            print(f"     Sentinel ↔ AlphaEarth: {'✓ ALIGNED' if result['sentinel_alpha_aligned'] else '⚠️ MISALIGNED'}")
+            if not result['sentinel_alpha_aligned']:
+                print(f"       CRS:       {'✓' if result['sentinel_alpha_crs'] else '✗'}")
+                print(f"       Bounds:    {'✓' if result['sentinel_alpha_bounds'] else '✗'} (diff: {result['sentinel_alpha_bounds_max_diff']:.6f}°)")
+                print(f"       Transform: {'✓' if result['sentinel_alpha_transform'] else '✗'}")
+                print(f"       Dims:      {'✓' if result['sentinel_alpha_dims'] else '✗'}")
 
-            print(f"  Transform Match: {'✓' if result['transform_match'] else '⚠️'} (max diff: {result['transform_max_diff']:.2e})")
+            print(f"\n  📊 High-Resolution Sources (VHR, PlanetScope):")
+            print(f"     VHR ↔ PlanetScope:     {'✓ BOUNDS ALIGNED' if result['vhr_planet_bounds_aligned'] else '⚠️ BOUNDS MISALIGNED'}")
+            if not result['vhr_planet_bounds_aligned']:
+                print(f"       CRS:       {'✓' if result['vhr_planet_crs'] else '✗'}")
+                print(f"       Bounds:    ✗ (diff: {result['vhr_planet_bounds_max_diff']:.6f}°)")
 
-            print(f"  Dimensions Match: {'✓' if result['dims_match'] else '⚠️'}")
-            if not result['dims_match']:
-                print(f"    Sentinel: {result['sentinel_dims']}")
-                print(f"    Mask:     {result['mask_dims']}")
+            print(f"\n  📊 Overall:")
+            print(f"     All CRS Match:         {'✓' if result['all_crs_match'] else '⚠️'} ({result['crs_value']})")
+            print(f"     Dimensions:")
+            print(f"       Sentinel:    {result['sentinel_dims']}")
+            print(f"       PlanetScope: {result['planetscope_dims']}")
+            print(f"       VHR:         {result['vhr_dims']}")
+            print(f"       AlphaEarth:  {result['alphaearth_dims']}")
+            print(f"       Mask:        {result['mask_dims']}")
 
-            if result['fully_aligned']:
-                print(f"\n  ✅ FULLY ALIGNED")
+            if result['all_checks_passed']:
+                print(f"\n  ✅ ALL ALIGNMENT CHECKS PASSED")
             else:
-                print(f"\n  ⚠️  ALIGNMENT ISSUES DETECTED")
+                print(f"\n  ⚠️  SOME ALIGNMENT CHECKS FAILED")
 
         # Summary
         print("\n" + "=" * 80)
@@ -194,14 +280,24 @@ if __name__ == "__main__":
 
         successful_checks = [r for r in results if 'error' not in r]
         if successful_checks:
-            aligned_count = sum(1 for r in successful_checks if r['fully_aligned'])
-            print(f"   Tiles checked: {len(successful_checks)}")
-            print(f"   Fully aligned: {aligned_count}/{len(successful_checks)}")
+            all_passed = sum(1 for r in successful_checks if r['all_checks_passed'])
+            sentinel_mask_ok = sum(1 for r in successful_checks if r['sentinel_mask_aligned'])
+            sentinel_alpha_ok = sum(1 for r in successful_checks if r['sentinel_alpha_aligned'])
+            vhr_planet_ok = sum(1 for r in successful_checks if r['vhr_planet_bounds_aligned'])
+            all_crs_ok = sum(1 for r in successful_checks if r['all_crs_match'])
 
-            if aligned_count == len(successful_checks):
-                print(f"\n✅ All checked tiles are properly aligned!")
+            print(f"   Tiles checked: {len(successful_checks)}")
+            print(f"   All checks passed: {all_passed}/{len(successful_checks)}")
+            print(f"\n   Detailed results:")
+            print(f"     Sentinel ↔ Mask aligned:       {sentinel_mask_ok}/{len(successful_checks)}")
+            print(f"     Sentinel ↔ AlphaEarth aligned: {sentinel_alpha_ok}/{len(successful_checks)}")
+            print(f"     VHR ↔ PlanetScope aligned:     {vhr_planet_ok}/{len(successful_checks)}")
+            print(f"     All CRS match:                 {all_crs_ok}/{len(successful_checks)}")
+
+            if all_passed == len(successful_checks):
+                print(f"\n✅ All checked tiles passed all alignment checks!")
             else:
-                print(f"\n⚠️  {len(successful_checks) - aligned_count} tile(s) have alignment issues")
+                print(f"\n⚠️  {len(successful_checks) - all_passed} tile(s) have alignment issues")
         else:
             print("   No successful checks")
 
@@ -210,31 +306,62 @@ if __name__ == "__main__":
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output_file, 'w') as f:
-            f.write("Spatial Alignment Report\n")
+            f.write("=" * 80 + "\n")
+            f.write("COMPREHENSIVE SPATIAL ALIGNMENT REPORT\n")
             f.write("=" * 80 + "\n\n")
+            f.write("Validates alignment across all data sources:\n")
+            f.write("  1. 10m resolution sources (Sentinel, AlphaEarth, Masks): exact alignment\n")
+            f.write("  2. High-resolution sources (VHR, PlanetScope): geographic bounds coverage\n\n")
             f.write(f"Checked {len(successful_checks)} tiles\n")
-            f.write(f"Fully aligned: {aligned_count}/{len(successful_checks)}\n\n")
+            f.write(f"All checks passed: {all_passed}/{len(successful_checks)}\n\n")
 
-            f.write("Individual Results:\n")
-            f.write("-" * 80 + "\n\n")
+            f.write("Detailed Results:\n")
+            f.write("-" * 80 + "\n")
+            f.write(f"  Sentinel ↔ Mask aligned:       {sentinel_mask_ok}/{len(successful_checks)}\n")
+            f.write(f"  Sentinel ↔ AlphaEarth aligned: {sentinel_alpha_ok}/{len(successful_checks)}\n")
+            f.write(f"  VHR ↔ PlanetScope aligned:     {vhr_planet_ok}/{len(successful_checks)}\n")
+            f.write(f"  All CRS match:                 {all_crs_ok}/{len(successful_checks)}\n\n")
+
+            f.write("Individual Tile Results:\n")
+            f.write("=" * 80 + "\n\n")
 
             for result in results:
                 if 'error' in result:
-                    f.write(f"ERROR: {result['error']}\n\n")
+                    f.write(f"REFID: {result.get('refid', 'unknown')}\n")
+                    f.write(f"  ERROR: {result['error']}\n\n")
                     continue
 
                 f.write(f"REFID: {result['refid']}\n")
-                f.write(f"  CRS Match: {result['crs_match']}\n")
-                f.write(f"  Bounds Aligned: {result['bounds_aligned']} (max diff: {result['bounds_max_diff']:.6f}°)\n")
-                f.write(f"  Transform Match: {result['transform_match']} (max diff: {result['transform_max_diff']:.2e})\n")
-                f.write(f"  Dimensions Match: {result['dims_match']}\n")
-                f.write(f"  Fully Aligned: {result['fully_aligned']}\n")
+                f.write(f"  10m Resolution Sources:\n")
+                f.write(f"    Sentinel ↔ Mask:       {'ALIGNED' if result['sentinel_mask_aligned'] else 'MISALIGNED'}\n")
+                f.write(f"      CRS:       {result['sentinel_mask_crs']}\n")
+                f.write(f"      Bounds:    {result['sentinel_mask_bounds']} (max diff: {result['sentinel_mask_bounds_max_diff']:.6f}°)\n")
+                f.write(f"      Transform: {result['sentinel_mask_transform']}\n")
+                f.write(f"      Dims:      {result['sentinel_mask_dims']}\n")
+                f.write(f"    Sentinel ↔ AlphaEarth: {'ALIGNED' if result['sentinel_alpha_aligned'] else 'MISALIGNED'}\n")
+                f.write(f"      CRS:       {result['sentinel_alpha_crs']}\n")
+                f.write(f"      Bounds:    {result['sentinel_alpha_bounds']} (max diff: {result['sentinel_alpha_bounds_max_diff']:.6f}°)\n")
+                f.write(f"      Transform: {result['sentinel_alpha_transform']}\n")
+                f.write(f"      Dims:      {result['sentinel_alpha_dims']}\n")
+                f.write(f"  High-Resolution Sources:\n")
+                f.write(f"    VHR ↔ PlanetScope:     {'ALIGNED' if result['vhr_planet_bounds_aligned'] else 'MISALIGNED'}\n")
+                f.write(f"      CRS:       {result['vhr_planet_crs']}\n")
+                f.write(f"      Bounds:    {result['vhr_planet_bounds_aligned']} (max diff: {result['vhr_planet_bounds_max_diff']:.6f}°)\n")
+                f.write(f"  Overall:\n")
+                f.write(f"    All CRS Match: {result['all_crs_match']} ({result['crs_value']})\n")
+                f.write(f"    Dimensions:\n")
+                f.write(f"      Sentinel:    {result['sentinel_dims']}\n")
+                f.write(f"      PlanetScope: {result['planetscope_dims']}\n")
+                f.write(f"      VHR:         {result['vhr_dims']}\n")
+                f.write(f"      AlphaEarth:  {result['alphaearth_dims']}\n")
+                f.write(f"      Mask:        {result['mask_dims']}\n")
+                f.write(f"  Status: {'✓ ALL CHECKS PASSED' if result['all_checks_passed'] else '⚠ SOME CHECKS FAILED'}\n")
                 f.write("\n")
 
             f.write("=" * 80 + "\n")
-            f.write(f"Summary: {aligned_count}/{len(successful_checks)} tiles properly aligned\n")
+            f.write(f"SUMMARY: {all_passed}/{len(successful_checks)} tiles passed all alignment checks\n")
 
-        print(f"\n✓ Alignment report saved to: {output_file}")
+        print(f"\n✓ Comprehensive alignment report saved to: {output_file}")
 
     except Exception as e:
         print(f"\n❌ ERROR: {e}")

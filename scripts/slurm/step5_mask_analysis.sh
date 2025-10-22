@@ -32,7 +32,7 @@ echo "Installing/checking required packages..."
 pip install --user rasterio geopandas scipy matplotlib > /dev/null 2>&1 || true
 echo ""
 
-echo "Running Step 5.1: Mask Analysis (ALL 53 REFIDs)"
+echo "Running Step 5.1: Enhanced Mask Analysis with Patch Size Distribution"
 echo "========================================="
 python /cluster/home/tmstorma/NINA_fordypningsoppgave/scripts/analysis/06_analyze_masks.py
 

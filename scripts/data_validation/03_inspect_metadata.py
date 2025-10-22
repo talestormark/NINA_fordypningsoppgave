@@ -85,8 +85,8 @@ def validate_tile_metadata(data_root, refid):
     """
     metadata_dict = {}
 
-    # Use 'masks' instead of 'mask' to match FOLDERS dict
-    for data_type in ['sentinel', 'vhr', 'alphaearth', 'masks']:
+    # Include all 5 sources: Sentinel, PlanetScope, VHR, AlphaEarth, Masks
+    for data_type in ['sentinel', 'planetscope', 'vhr', 'alphaearth', 'masks']:
         filepath = construct_filepath(data_root, refid, data_type)
 
         if filepath.exists():
@@ -119,15 +119,25 @@ if __name__ == "__main__":
         # Load REFID list
         refid_list_file = Path(REPORTS_DIR) / "refid_list.txt"
         with open(refid_list_file, 'r') as f:
-            refids = [line.strip() for line in f if line.strip()]
+            lines = [line.strip() for line in f if line.strip()]
+
+        # Filter out header lines and extract just the REFIDs
+        # REFIDs start with 'a' or '-' and contain underscores
+        refids = []
+        for line in lines:
+            if (line.startswith('a') or line.startswith('-')) and '_' in line and len(line) > 20:
+                # Extract first token (REFID) from metadata table
+                refid = line.split()[0]
+                if refid not in refids:  # Avoid duplicates
+                    refids.append(refid)
 
         print(f"\nLoaded {len(refids)} REFIDs from {refid_list_file}")
-        print(f"Processing first 10 REFIDs...\n")
+        print(f"Processing all {len(refids)} REFIDs...\n")
         print("=" * 80)
 
-        # Process first 10 REFIDs
+        # Process all REFIDs
         results = []
-        refids_to_process = refids[:10]
+        refids_to_process = refids  # Process all instead of first 10
 
         for refid in tqdm(refids_to_process, desc="Validating metadata"):
             metadata_dict = validate_tile_metadata(DATA_ROOT, refid)
@@ -145,6 +155,17 @@ if __name__ == "__main__":
                 row['sentinel_bands'] = None
                 row['sentinel_dims'] = None
                 row['sentinel_crs'] = None
+
+            # PlanetScope
+            if metadata_dict['planetscope']:
+                p_meta = metadata_dict['planetscope']
+                row['planetscope_bands'] = p_meta['count']
+                row['planetscope_dims'] = f"{p_meta['width']}x{p_meta['height']}"
+                row['planetscope_crs'] = p_meta['crs']
+            else:
+                row['planetscope_bands'] = None
+                row['planetscope_dims'] = None
+                row['planetscope_crs'] = None
 
             # VHR
             if metadata_dict['vhr']:
@@ -180,7 +201,8 @@ if __name__ == "__main__":
                 row['mask_crs'] = None
 
             # Check if all CRS match
-            crs_values = [row['sentinel_crs'], row['vhr_crs'], row['alphaearth_crs'], row['mask_crs']]
+            crs_values = [row['sentinel_crs'], row['planetscope_crs'], row['vhr_crs'],
+                         row['alphaearth_crs'], row['mask_crs']]
             crs_values = [c for c in crs_values if c is not None]
             row['all_crs_match'] = len(set(crs_values)) <= 1 if crs_values else False
 
@@ -188,6 +210,8 @@ if __name__ == "__main__":
             checks_passed = []
             if row['sentinel_bands'] is not None:
                 checks_passed.append(row['sentinel_bands'] == EXPECTED_BANDS['sentinel'])
+            if row['planetscope_bands'] is not None:
+                checks_passed.append(row['planetscope_bands'] == EXPECTED_BANDS['planetscope'])
             if row['vhr_bands'] is not None:
                 checks_passed.append(row['vhr_bands'] == EXPECTED_BANDS['vhr'])
             if row['mask_bands'] is not None:
@@ -210,9 +234,16 @@ if __name__ == "__main__":
             # Sentinel
             if row['sentinel_bands'] is not None:
                 is_valid, msg = check_band_count(row['sentinel_bands'], EXPECTED_BANDS['sentinel'], 'sentinel')
-                print(f"  Sentinel:   {msg:20s} | {row['sentinel_dims']:12s} | {row['sentinel_crs']}")
+                print(f"  Sentinel:    {msg:20s} | {row['sentinel_dims']:12s} | {row['sentinel_crs']}")
             else:
-                print(f"  Sentinel:   ⚠️  FILE NOT FOUND")
+                print(f"  Sentinel:    ⚠️  FILE NOT FOUND")
+
+            # PlanetScope
+            if row['planetscope_bands'] is not None:
+                is_valid, msg = check_band_count(row['planetscope_bands'], EXPECTED_BANDS['planetscope'], 'planetscope')
+                print(f"  PlanetScope: {msg:20s} | {row['planetscope_dims']:12s} | {row['planetscope_crs']}")
+            else:
+                print(f"  PlanetScope: ⚠️  FILE NOT FOUND")
 
             # VHR
             if row['vhr_bands'] is not None:

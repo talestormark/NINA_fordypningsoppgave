@@ -24,7 +24,7 @@ def analyze_mask(mask_path):
         mask_path: Path to mask file
 
     Returns:
-        dict: Analysis results
+        dict: Analysis results including patch_sizes list
     """
     try:
         with rasterio.open(mask_path) as src:
@@ -40,8 +40,8 @@ def analyze_mask(mask_path):
         labeled_mask, num_patches = ndimage.label(mask == 1)
 
         # Get patch sizes
+        patch_sizes = []
         if num_patches > 0:
-            patch_sizes = []
             for patch_id in range(1, num_patches + 1):
                 patch_size = np.sum(labeled_mask == patch_id)
                 patch_sizes.append(patch_size)
@@ -60,6 +60,7 @@ def analyze_mask(mask_path):
             'num_change_patches': num_patches,
             'max_patch_size': max_patch_size,
             'mean_patch_size': mean_patch_size,
+            'patch_sizes': patch_sizes,  # NEW: return actual patch sizes list
             'success': True
         }
 
@@ -72,17 +73,70 @@ def analyze_mask(mask_path):
             'num_change_patches': None,
             'max_patch_size': None,
             'mean_patch_size': None,
+            'patch_sizes': [],  # NEW: empty list on error
             'success': False,
             'error': str(e)
         }
 
 
+def load_refids(refid_file):
+    """
+    Load REFIDs from enhanced refid_list.txt format (with metadata table)
+
+    Args:
+        refid_file: Path to refid_list.txt
+
+    Returns:
+        list: REFIDs
+    """
+    refids = []
+    in_data_section = False
+
+    with open(refid_file, 'r') as f:
+        for line in f:
+            line_stripped = line.strip()
+
+            # Skip empty lines
+            if not line_stripped:
+                continue
+
+            # Skip header lines
+            if line_stripped.startswith('=') or line_stripped.startswith('#') or \
+               'Land-Take Detection Dataset' in line_stripped or \
+               'European countries' in line_stripped or \
+               'Generated:' in line_stripped or \
+               'Total REFIDs:' in line_stripped or \
+               'These REFIDs have complete data' in line_stripped or \
+               'REFID List with Metadata' in line_stripped:
+                continue
+
+            # Detect start of data section (header row with "REFID Country Loss Type...")
+            if line_stripped.startswith('REFID') and 'Country' in line_stripped:
+                in_data_section = True
+                continue
+
+            # Skip separator lines
+            if line_stripped.startswith('-'):
+                continue
+
+            # Parse data lines: REFID is first whitespace-separated token
+            if in_data_section:
+                # Split on whitespace and take first token
+                parts = line_stripped.split()
+                if parts:
+                    refid = parts[0]
+                    # Validate REFID format: starts with 'a', 'R', or 'r' and contains '_'
+                    if refid and len(refid) > 10 and refid[0] in 'aRr' and '_' in refid:
+                        refids.append(refid)
+
+    return refids
+
+
 if __name__ == "__main__":
     try:
-        # Load REFID list
+        # Load REFID list using proper parser
         refid_list_file = Path(REPORTS_DIR) / "refid_list.txt"
-        with open(refid_list_file, 'r') as f:
-            refids = [line.strip() for line in f if line.strip()]
+        refids = load_refids(refid_list_file)
 
         print(f"\nLoaded {len(refids)} REFIDs")
         print(f"Analyzing ALL {len(refids)} masks...\n")
@@ -155,6 +209,14 @@ if __name__ == "__main__":
         # Create visualization
         print("\nCreating visualizations...")
 
+        # Collect all patch sizes from all tiles
+        all_patch_sizes = []
+        for idx, row in df_success.iterrows():
+            if 'patch_sizes' in row and row['patch_sizes']:
+                all_patch_sizes.extend(row['patch_sizes'])
+
+        print(f"Total patches across all tiles: {len(all_patch_sizes)}")
+
         fig, axes = plt.subplots(1, 3, figsize=(15, 4))
 
         # Subplot 1: Histogram of change_ratio
@@ -164,12 +226,25 @@ if __name__ == "__main__":
         axes[0].set_title('Distribution of Change Ratio', fontsize=14, fontweight='bold')
         axes[0].grid(axis='y', alpha=0.3)
 
-        # Subplot 2: Histogram of num_change_patches
-        axes[1].hist(df_success['num_change_patches'], bins=30, color='coral', edgecolor='black')
-        axes[1].set_xlabel('Number of Change Patches', fontsize=12)
-        axes[1].set_ylabel('Number of Tiles', fontsize=12)
-        axes[1].set_title('Distribution of Change Patches', fontsize=14, fontweight='bold')
-        axes[1].grid(axis='y', alpha=0.3)
+        # Subplot 2: ENHANCED - Histogram of patch sizes (log scale)
+        if len(all_patch_sizes) > 0:
+            # Use log scale for better visualization of wide range
+            axes[1].hist(all_patch_sizes, bins=50, color='coral', edgecolor='black')
+            axes[1].set_xlabel('Patch Size (pixels)', fontsize=12)
+            axes[1].set_ylabel('Number of Patches', fontsize=12)
+            axes[1].set_title('Distribution of Patch Sizes', fontsize=14, fontweight='bold')
+            axes[1].set_yscale('log')  # Log scale for y-axis
+            axes[1].grid(axis='y', alpha=0.3, which='both')
+
+            # Add statistics text
+            median_size = np.median(all_patch_sizes)
+            mean_size = np.mean(all_patch_sizes)
+            axes[1].axvline(median_size, color='red', linestyle='--', linewidth=2,
+                           label=f'Median: {median_size:.0f}px')
+            axes[1].legend(fontsize=10)
+        else:
+            axes[1].text(0.5, 0.5, 'No patch data available',
+                        ha='center', va='center', transform=axes[1].transAxes)
 
         # Subplot 3: Boxplot of change_ratio
         axes[2].boxplot(df_success['change_ratio'], vert=True, patch_artist=True,
@@ -196,7 +271,10 @@ if __name__ == "__main__":
         print("\n" + "=" * 80)
         print(f"\n✅ Mask analysis complete!")
         print(f"   Processed: {len(df_success)}/{len(df)} tiles")
-        print(f"   Overall change: {overall_change_ratio:.2f}%")
+        if len(df_success) > 0:
+            print(f"   Overall change: {overall_change_ratio:.2f}%")
+        else:
+            print(f"   No successful analyses to report")
 
     except Exception as e:
         print(f"\n❌ ERROR: {e}")
