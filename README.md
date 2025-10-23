@@ -16,6 +16,10 @@ This project focuses on detecting and analyzing land-take (conversion of natural
 - AlphaEarth embeddings (448 bands)
 - PlanetScope imagery
 
+## Whats done so far?
+
+Take a look at the [Project Summary](docs/PROJECT_SUMMARY.md) to understand whats done so far. 
+
 ## Repository Structure
 
 ```
