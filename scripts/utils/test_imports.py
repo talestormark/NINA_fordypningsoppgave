@@ -23,6 +23,11 @@ def test_imports():
         ('sklearn', 'Scikit-learn (machine learning)'),
         ('tqdm', 'TQDM (progress bars)'),
         ('scipy', 'SciPy (scientific computing)'),
+        ('torch', 'PyTorch (deep learning)'),
+        ('torchvision', 'TorchVision (computer vision)'),
+        ('torchgeo', 'TorchGeo (geospatial ML)'),
+        ('albumentations', 'Albumentations (image augmentation)'),
+        ('segmentation_models_pytorch', 'SMP (segmentation models)'),
     ]
 
     for module_name, description in imports_to_test:

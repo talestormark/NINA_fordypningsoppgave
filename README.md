@@ -78,13 +78,17 @@ NINA_fordypningsoppgave/
 
 ### 1. Environment Setup
 
-```bash
-# Load Anaconda module (on HPC)
-module load Anaconda3/2023.09-0
+The modeling environment is now installed! To use it:
 
-# Install required packages
-pip install --user rasterio geopandas scipy matplotlib pandas numpy
+```bash
+# Load Python module
+module load Python/3.11.3-GCCcore-12.3.0
+
+# Verify installation
+python3 scripts/utils/test_imports.py
 ```
+
+For detailed setup info, see `docs/ENVIRONMENT_QUICK_START.md`
 
 ### 2. Configuration
 
@@ -134,19 +138,6 @@ sbatch scripts/slurm/step6_visualizations.sh
 - Moderate-change (5-30%): 30 tiles
 - High-change (≥30%): 6 tiles
 
-## Workflow Steps
-
-Follow the steps in `docs/INSTRUCTIONS.md`:
-
-1. **Environment Setup** - Install dependencies
-2. **File System Exploration** - Inspect data structure, extract REFIDs
-3. **Metadata Validation** - Check bands, CRS, dimensions
-4. **Data Quality Checks** - Validate Sentinel-2, VHR, masks
-5. **Mask Analysis** - Analyze land-take patterns, identify edge cases
-6. **Visual Inspection** - Generate tile visualizations and summary grid
-7. **Comprehensive Report** - Consolidate findings
-8. **Modeling Checklist** - Prepare for deep learning pipeline
-
 ## Key Technical Details
 
 ### VHR Google Imagery
@@ -195,13 +186,34 @@ See `docs/SLURM_INSTRUCTIONS.md` for detailed HPC usage.
 - `tile_{refid}.png` - Individual tile visualizations (2018, 2025, change, mask)
 - `summary_grid.png` - 6-tile overview showing diverse change levels
 
-## Next Steps
+## Experiment Tracking
 
-1. Review data quality reports and visualizations
-2. Implement deep learning model for land-take detection
-3. Experiment with multi-temporal Sentinel-2 data
-4. Integrate AlphaEarth embeddings for improved performance
-5. Evaluate model on diverse geographic locations
+**Weights & Biases Integration**: All training runs are tracked with wandb for visualization and comparison.
+
+- **Project Dashboard**: https://wandb.ai/NINA_Fordypningsoppgave/landtake-detection
+- **Enable logging**: Add `--wandb` flag to training commands
+- **View past runs**: 8 baseline models already uploaded with full metrics
+- **Features**: Training curves, model comparison, checkpoint management
+
+```bash
+# Train with wandb logging
+sbatch scripts/slurm/train_baseline.sh siam_conc 200 4 resnet50 42 true
+```
+
+## Baseline models
+
+Read the file [Baseline Models](docs/BASELINE_MODELS.md) and its linked references.
+
+--- 
+
+## Code Style Guidelines
+- Keep the code **minimal** — only include what is **absolutely necessary**.  
+- The code must be **clean, readable, and well-structured**.  
+- Use **clear variable names** and **concise comments**.  
+- Do **not** use emoticons
+- **Do not** generate or modify any code **without my explicit approval**.
+
+---
 
 ## Contact
 

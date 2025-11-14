@@ -1,0 +1,234 @@
+\documentclass[border=8pt, multi, tikz]{standalone}
+\usepackage{import}
+\subimport{layers/}{init}
+\usetikzlibrary{positioning}
+\usetikzlibrary{3d}
+\usetikzlibrary{calc}
+
+\def\ConvColor{rgb:yellow,5;red,2.5;white,5}
+\def\ConvReluColor{rgb:yellow,5;red,5;white,5}
+\def\PoolColor{rgb:red,1;black,0.3}
+\def\UnpoolColor{rgb:blue,2;green,1;black,0.3}
+\def\ConcatColor{rgb:magenta,5;black,3}
+\def\SoftmaxColor{rgb:magenta,5;black,7}
+
+\newcommand{\copymidarrow}{\tikz \draw[-Stealth,line width=0.8mm,draw={rgb:blue,4;red,1;green,1;black,3}] (-0.3,0) -- ++(0.3,0);}
+
+\begin{document}
+\begin{tikzpicture}
+\tikzstyle{connection}=[ultra thick,every node/.style={sloped,allow upside down},draw=\edgecolor,opacity=0.7]
+\tikzstyle{copyconnection}=[ultra thick,every node/.style={sloped,allow upside down},draw={rgb:blue,4;red,1;green,1;black,3},opacity=0.7]
+\tikzstyle{siamese}=[ultra thick,every node/.style={sloped,allow upside down},draw={rgb:purple,5;black,3},opacity=0.7]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Input: Siamese - Two separate branches with weight sharing
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Image 2018 (actual VHR RGB) - TOP BRANCH
+\node[canvas is zy plane at x=0] (img2018) at (-3,6,0)
+    {\includegraphics[width=6cm,height=6cm]{input_images/a-0-77133618972711_46-45684360844514_2018.jpg}};
+\node[above=0.8cm of img2018, font=\normalsize] {Image 2018 (RGB)};
+\node[below=0.2cm of img2018, font=\scriptsize] {H×W×3};
+
+% Image 2025 (actual VHR RGB) - BOTTOM BRANCH
+\node[canvas is zy plane at x=0] (img2025) at (-3,-6,0)
+    {\includegraphics[width=6cm,height=6cm]{input_images/a-0-77133618972711_46-45684360844514_2025.jpg}};
+\node[above=0.8cm of img2025, font=\normalsize] {Image 2025 (RGB)};
+\node[below=0.2cm of img2025, font=\scriptsize] {H×W×3};
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Siamese Encoder Branch 1 (processes t1 - 2018) - TOP BRANCH
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\pic[shift={(0,0,0)}] at (0,6,0) {RightBandedBox={name=cr1_t1,caption=Conv1,%
+        xlabel={{"64"}},zlabel=H/2×W/2,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=30,width={2},depth=30}};
+
+\pic[shift={(1.2,0,0)}] at (cr1_t1-east) {RightBandedBox={name=cr2_t1,caption=Layer1,%
+        xlabel={{"256"}},zlabel=H/4×W/4,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=25,width={2.5},depth=25}};
+
+\pic[shift={(1.2,0,0)}] at (cr2_t1-east) {RightBandedBox={name=cr3_t1,caption=Layer2,%
+        xlabel={{"512"}},zlabel=H/8×W/8,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=20,width={3},depth=20}};
+
+\pic[shift={(1.2,0,0)}] at (cr3_t1-east) {RightBandedBox={name=cr4_t1,caption=Layer3,%
+        xlabel={{"1024"}},zlabel=H/16×W/16,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=13,width={4},depth=13}};
+
+\pic[shift={(0.75,0,0)}] at (cr4_t1-east) {RightBandedBox={name=cr5_t1,caption=Layer4,%
+        xlabel={{"2048"}},zlabel=H/32×W/32,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=6,width={5},depth=6}};
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Siamese Encoder Branch 2 (processes t2 - 2025) - BOTTOM BRANCH
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pic[shift={(0,0,0)}] at (0,-6,0) {RightBandedBox={name=cr1_t2,caption=Conv1,%
+        xlabel={{"64"}},zlabel=H/2×W/2,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=30,width={2},depth=30}};
+
+\pic[shift={(1.2,0,0)}] at (cr1_t2-east) {RightBandedBox={name=cr2_t2,caption=Layer1,%
+        xlabel={{"256"}},zlabel=H/4×W/4,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=25,width={2.5},depth=25}};
+
+\pic[shift={(1.2,0,0)}] at (cr2_t2-east) {RightBandedBox={name=cr3_t2,caption=Layer2,%
+        xlabel={{"512"}},zlabel=H/8×W/8,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=20,width={3},depth=20}};
+
+\pic[shift={(1.2,0,0)}] at (cr3_t2-east) {RightBandedBox={name=cr4_t2,caption=Layer3,%
+        xlabel={{"1024"}},zlabel=H/16×W/16,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=13,width={4},depth=13}};
+
+\pic[shift={(0.75,0,0)}] at (cr4_t2-east) {RightBandedBox={name=cr5_t2,caption=Layer4,%
+        xlabel={{"2048"}},zlabel=H/32×W/32,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=6,width={5},depth=6}};
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Concatenation Operation (Feature-level concatenation)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Position concatenation node centered between the two branches
+\path (cr5_t1-east) -- (cr5_t2-east) coordinate[pos=0.5] (cr5_mid);
+\pic[shift={(2.5,0,0)}] at (cr5_mid)
+  {Ball={name=concat, fill=\ConcatColor, opacity=0.5, radius=5,
+         logo={\scalebox{0.4}{$\scriptstyle [f_{t_1}; f_{t_2}]$}}}};
+
+% Connections from both branches to concatenation node
+\draw [connection]  (cr5_t1-east) -- node {\midarrow} (concat-west);
+\draw [connection]  (cr5_t2-east) -- node {\midarrow} (concat-west);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Decoder (U-Net upsampling path with skip connections from concatenated features)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Upsample 1: H/32 -> H/16 (note: starts with 4096 channels from concatenation)
+\pic[shift={(2.5,0,0)}] at (concat-east) {Box={name=up4,%
+        fill=\UnpoolColor,opacity=0.6,height=13,width=1,depth=13}};
+\pic[shift={(0,0,0)}] at (up4-east) {RightBandedBox={name=ucr4,%
+        xlabel={{"1024"}},fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=13,width=4,depth=13}};
+\pic[shift={(0,0,0)}] at (ucr4-east) {RightBandedBox={name=cat4,%
+        xlabel={{"1024"}},fill={rgb:white,1;black,3},bandfill={rgb:white,1;black,2},opacity=0.2,height=13,width=4,depth=13}};
+\pic[shift={(0,0,0)}] at (cat4-east) {RightBandedBox={name=ucr4a,%
+        xlabel={{"1024"}},zlabel=H/16×W/16,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=13,width={4},depth=13}};
+
+% Upsample 2: H/16 -> H/8
+\pic[shift={(1,0,0)}] at (ucr4a-east) {Box={name=up3,%
+        fill=\UnpoolColor,opacity=0.6,height=20,width=1,depth=20}};
+\pic[shift={(0,0,0)}] at (up3-east) {RightBandedBox={name=ucr3,%
+        xlabel={{"512"}},fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=20,width=3,depth=20}};
+\pic[shift={(0,0,0)}] at (ucr3-east) {RightBandedBox={name=cat3,%
+        xlabel={{"512"}},fill={rgb:white,1;black,3},bandfill={rgb:white,1;black,2},opacity=0.2,height=20,width=3,depth=20}};
+\pic[shift={(0,0,0)}] at (cat3-east) {RightBandedBox={name=ucr3a,%
+        xlabel={{"512"}},zlabel=H/8×W/8,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=20,width={3},depth=20}};
+
+% Upsample 3: H/8 -> H/4
+\pic[shift={(1,0,0)}] at (ucr3a-east) {Box={name=up2,%
+        fill=\UnpoolColor,opacity=0.6,height=25,width=1,depth=25}};
+\pic[shift={(0,0,0)}] at (up2-east) {RightBandedBox={name=ucr2,%
+        xlabel={{"256"}},fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=25,width=2.5,depth=25}};
+\pic[shift={(0,0,0)}] at (ucr2-east) {RightBandedBox={name=cat2,%
+        xlabel={{"256"}},fill={rgb:white,1;black,3},bandfill={rgb:white,1;black,2},opacity=0.2,height=25,width=2.5,depth=25}};
+\pic[shift={(0,0,0)}] at (cat2-east) {RightBandedBox={name=ucr2a,%
+        xlabel={{"256"}},zlabel=H/4×W/4,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=25,width={2.5},depth=25}};
+
+% Upsample 4: H/4 -> H/2
+\pic[shift={(1,0,0)}] at (ucr2a-east) {Box={name=up1,%
+        fill=\UnpoolColor,opacity=0.6,height=30,width=1,depth=30}};
+\pic[shift={(0,0,0)}] at (up1-east) {RightBandedBox={name=ucr1,%
+        xlabel={{"64"}},fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=30,width=2,depth=30}};
+\pic[shift={(0,0,0)}] at (ucr1-east) {RightBandedBox={name=cat1,%
+        xlabel={{"64"}},fill={rgb:white,1;black,3},bandfill={rgb:white,1;black,2},opacity=0.2,height=30,width=2,depth=30}};
+\pic[shift={(0,0,0)}] at (cat1-east) {RightBandedBox={name=ucr1a,%
+        xlabel={{"64"}},zlabel=H/2×W/2,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=30,width={2},depth=30}};
+
+% Final upsample: H/2 -> H
+\pic[shift={(1,0,0)}] at (ucr1a-east) {Box={name=upfinal,%
+        fill=\UnpoolColor,opacity=0.6,height=35,width=1,depth=35}};
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Output Head: 1x1 Conv + Softmax
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pic[shift={(0.75,0,0)}] at (upfinal-east) {Box={name=out,caption=Conv 1×1 + Softmax,%
+        zlabel=H×W,fill=\SoftmaxColor,height=35,width=1.5,depth=35}};
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Input to Encoder Connections
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\draw [connection]  (img2018) -- (cr1_t1-west);
+\draw [connection]  (img2025) -- (cr1_t2-west);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Forward Connections in Encoders
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\draw [connection]  (cr1_t1-east) -- node {\midarrow} (cr2_t1-west);
+\draw [connection]  (cr2_t1-east) -- node {\midarrow} (cr3_t1-west);
+\draw [connection]  (cr3_t1-east) -- node {\midarrow} (cr4_t1-west);
+\draw [connection]  (cr4_t1-east) -- node {\midarrow} (cr5_t1-west);
+
+\draw [connection]  (cr1_t2-east) -- node {\midarrow} (cr2_t2-west);
+\draw [connection]  (cr2_t2-east) -- node {\midarrow} (cr3_t2-west);
+\draw [connection]  (cr3_t2-east) -- node {\midarrow} (cr4_t2-west);
+\draw [connection]  (cr4_t2-east) -- node {\midarrow} (cr5_t2-west);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Forward Connections in Decoder
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\draw [connection]  (concat-east)  -- node {\midarrow} (up4-west);
+\draw [connection]  (ucr4a-east)      -- node {\midarrow} (up3-west);
+\draw [connection]  (ucr3a-east)      -- node {\midarrow} (up2-west);
+\draw [connection]  (ucr2a-east)      -- node {\midarrow} (up1-west);
+\draw [connection]  (ucr1a-east)      -- node {\midarrow} (upfinal-west);
+\draw [connection]  (upfinal-east)    -- node {\midarrow} (out-west);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Skip Connections (concatenated features from encoder to decoder)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Calculate concatenation points between branches (midpoints)
+\path (cr4_t1-south) -- (cr4_t2-north) coordinate[pos=0.5] (cr4_mid);
+\path (cr3_t1-south) -- (cr3_t2-north) coordinate[pos=0.5] (cr3_mid);
+\path (cr2_t1-south) -- (cr2_t2-north) coordinate[pos=0.5] (cr2_mid);
+\path (cr1_t1-south) -- (cr1_t2-north) coordinate[pos=0.5] (cr1_mid);
+
+\path (cat4-south) -- (cat4-north) coordinate[pos=1.25] (cat4_top);
+\path (cat3-south) -- (cat3-north) coordinate[pos=1.25] (cat3_top);
+\path (cat2-south) -- (cat2-north) coordinate[pos=1.25] (cat2_top);
+\path (cat1-south) -- (cat1-north) coordinate[pos=1.25] (cat1_top);
+
+\draw [copyconnection]  (cr4_mid)
+    -- node {\copymidarrow}(cat4_top)
+    -- node {\copymidarrow} (cat4-north);
+
+\draw [copyconnection]  (cr3_mid)
+    -- node {\copymidarrow}(cat3_top)
+    -- node {\copymidarrow} (cat3-north);
+
+\draw [copyconnection]  (cr2_mid)
+    -- node {\copymidarrow}(cat2_top)
+    -- node {\copymidarrow} (cat2-north);
+
+\draw [copyconnection]  (cr1_mid)
+    -- node {\copymidarrow}(cat1_top)
+    -- node {\copymidarrow} (cat1-north);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Weight Sharing Indicators (dashed lines between Siamese branches)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\draw [siamese, dashed] (cr1_t1-south) -- (cr1_t2-north);
+\draw [siamese, dashed] (cr2_t1-south) -- (cr2_t2-north);
+\draw [siamese, dashed] (cr3_t1-south) -- (cr3_t2-north);
+\draw [siamese, dashed] (cr4_t1-south) -- (cr4_t2-north);
+\draw [siamese, dashed] (cr5_t1-south) -- (cr5_t2-north);
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Annotations
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\node[font=\small, align=center, text=violet] at (-2,0) {(Weight Sharing)};
+
+\end{tikzpicture}
+\end{document}

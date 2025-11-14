@@ -10,16 +10,18 @@ VHR_google/
 .DS_Store
 .vscode/
 .idea/
-__pycache__/
-*.pyc
 
-# Conda / environment
+# Python environment and caches
 .env
 .venv/
-*.yaml
-*.yml
+env/
+environment/
 *.conda
 *.lock
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
 
 # Large or generated files
 *.tif
