@@ -45,5 +45,3 @@ NINA_fordypningsoppgave/
 
 **Author**: tmstorma@stud.ntnu.no
 **Project**: NINA Fordypningsoppgave (Deep Learning for Land-Take Detection)
-**Data Source**: HABLOSS Project (https://habloss.eu/)
-
