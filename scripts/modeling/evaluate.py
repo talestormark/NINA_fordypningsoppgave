@@ -95,7 +95,7 @@ def evaluate_model(model, dataloader, device, save_predictions=True, output_dir=
             # Compute per-tile metrics
             tile_metrics = Metrics()
             tile_metrics.update(
-                torch.sigmoid(outputs[i:i+1]).cpu(),
+                outputs[i:i+1].cpu(),  # Pass raw logits, not sigmoid(outputs)
                 masks[i:i+1].cpu()
             )
             tile_result = tile_metrics.compute()

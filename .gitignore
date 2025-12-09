@@ -47,3 +47,6 @@ checkpoints/
 wandb/
 tensorboard/
 mlruns/
+docs/
+sam_vit_b_01ec64.pth
+scripts/classify_images_sam.py
