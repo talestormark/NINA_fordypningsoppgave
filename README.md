@@ -1,6 +1,6 @@
 # NINA Land-Take Detection Project
 
-Deep learning-based land-take detection using multi-temporal remote sensing data from the HABLOSS project.
+Deep learning-based land-take detection using remote sensing data from the HABLOSS project.
 
 ## Project Overview
 
