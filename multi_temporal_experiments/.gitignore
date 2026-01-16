@@ -1,0 +1,30 @@
+# Multi-temporal experiments gitignore
+
+# Outputs - model checkpoints and predictions
+outputs/experiments/**/checkpoints/
+outputs/experiments/**/predictions/*.npy
+outputs/experiments/**/wandb/
+
+# Large log files
+outputs/logs/*.log
+
+# Jupyter notebook checkpoints
+notebooks/.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# Keep directory structure but ignore contents
+!outputs/experiments/.gitkeep
+!outputs/reports/.gitkeep
+!outputs/figures/.gitkeep
+!outputs/logs/.gitkeep
