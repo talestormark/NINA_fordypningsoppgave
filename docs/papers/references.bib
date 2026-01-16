@@ -1,0 +1,268 @@
+% BibTeX references for Multi-Temporal Change Detection Research
+% Generated: January 2026
+
+% ============================================================================
+% ESSENTIAL REVIEWS (Read First)
+% ============================================================================
+
+@article{miller2024deep,
+  title={Deep Learning for Satellite Image Time Series Analysis: A Review},
+  author={Miller, Emma and others},
+  journal={arXiv preprint arXiv:2404.03936},
+  year={2024},
+  month={April},
+  url={https://arxiv.org/pdf/2404.03936},
+  note={Comprehensive review covering SITS methods, LSTM, Transformers, 3D CNNs}
+}
+
+@inproceedings{tarasiou2023vits,
+  title={ViTs for SITS: Vision Transformers for Satellite Image Time Series},
+  author={Tarasiou, Michail and Chavez, Erik and Zafeiriou, Stefanos},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages={10588--10597},
+  year={2023},
+  url={https://openaccess.thecvf.com/content/CVPR2023/papers/Tarasiou_ViTs_for_SITS_Vision_Transformers_for_Satellite_Image_Time_Series_CVPR_2023_paper.pdf}
+}
+
+@article{change_detection_reality_check2024,
+  title={A Change Detection Reality Check},
+  author={Ebel, Patrick and others},
+  journal={arXiv preprint arXiv:2402.06994},
+  year={2024},
+  month={February},
+  url={https://arxiv.org/html/2402.06994},
+  note={Important: WHU-CD dataset has 85\% test-train overlap bug}
+}
+
+@article{spatiotemporal_fusion_review2024,
+  title={Recent Advances in Deep Learning-Based Spatiotemporal Fusion Methods for Remote Sensing Images},
+  journal={PMC},
+  year={2024},
+  url={https://pmc.ncbi.nlm.nih.gov/articles/PMC11859923/},
+  note={Review of LSTM, GRU, Transformer approaches}
+}
+
+% ============================================================================
+% RQ1: MULTI-TEMPORAL VS BI-TEMPORAL METHODS
+% ============================================================================
+
+@article{lstm_multiscale2025,
+  title={Enhancing change detection in multi-temporal optical images using a novel multi-scale deep learning approach based on LSTM},
+  journal={Advances in Space Research},
+  year={2025},
+  url={https://www.sciencedirect.com/science/article/abs/pii/S0273117725001814},
+  note={LSTM-based multi-scale change detection}
+}
+
+@article{spatial_temporal_fusion2025,
+  title={Spatial temporal fusion based features for enhanced remote sensing change detection},
+  journal={Scientific Reports},
+  year={2025},
+  url={https://www.nature.com/articles/s41598-025-14592-x},
+  note={Demonstrates benefits of spatial-temporal integration}
+}
+
+@article{ehctnet2025,
+  title={Enhanced hybrid CNN and transformer network for remote sensing image change detection},
+  journal={Scientific Reports},
+  year={2025},
+  url={https://www.nature.com/articles/s41598-025-94544-7},
+  note={EHCTNet achieves high recall, detects subtle changes}
+}
+
+@article{planetscope_3dcnn2025,
+  title={Determination of land use and land cover change using multi-temporal PlanetScope images and deep learning CNN model},
+  journal={Paddy and Water Environment},
+  year={2025},
+  url={https://link.springer.com/article/10.1007/s10333-025-01024-9},
+  note={3D CNN with multi-temporal PlanetScope imagery}
+}
+
+@article{change_detection_review2024,
+  title={Deep learning change detection techniques for optical remote sensing imagery: Status, perspectives and challenges},
+  journal={ScienceDirect},
+  year={2024},
+  url={https://www.sciencedirect.com/science/article/pii/S1569843224006381},
+  note={Comprehensive review of optical change detection}
+}
+
+% ============================================================================
+% RQ2: TEMPORAL SAMPLING DENSITY
+% ============================================================================
+
+@article{subannual_change2015,
+  title={Detecting Change Dates from Dense Satellite Time Series Using a Sub-Annual Change Detection Algorithm},
+  journal={Remote Sensing},
+  volume={7},
+  number={7},
+  pages={8705},
+  year={2015},
+  url={https://www.mdpi.com/2072-4292/7/7/8705},
+  note={Quarterly vs annual comparison, captures construction phases}
+}
+
+@article{dense_timeseries2019,
+  title={An Evaluation and Comparison of Four Dense Time Series Change Detection Methods Using Simulated Data},
+  journal={Remote Sensing},
+  volume={11},
+  number={23},
+  pages={2779},
+  year={2019},
+  url={https://www.mdpi.com/2072-4292/11/23/2779},
+  note={Evaluates BFAST, CCDC, EWMACD methods}
+}
+
+@article{sits_analysis_review,
+  title={Remote Sensing Time Series Analysis: A Review of Data and Applications},
+  journal={Journal of Remote Sensing},
+  url={https://spj.science.org/doi/10.34133/remotesensing.0285},
+  note={Comprehensive SITS analysis review, temporal resolution considerations}
+}
+
+@article{continuous_urban_change2024,
+  title={Continuous Urban Change Detection from Satellite Image Time Series with Temporal Feature Refinement and Multi-Task Integration},
+  journal={arXiv preprint},
+  year={2024},
+  month={June},
+  url={https://arxiv.org/html/2406.17458v1},
+  note={Continuous monitoring vs discrete time steps}
+}
+
+@article{bayesian_changepoint2019,
+  title={Detecting change-point, trend, and seasonality in satellite time series data to track abrupt changes and nonlinear dynamics: A Bayesian ensemble algorithm},
+  journal={ScienceDirect},
+  year={2019},
+  url={https://www.sciencedirect.com/science/article/abs/pii/S0034425719301853},
+  note={Handles seasonality, justifies quarterly sampling}
+}
+
+% ============================================================================
+% RQ3: TEMPORAL MODELING ARCHITECTURES (1D vs 2D)
+% ============================================================================
+
+% Temporal Attention Mechanisms
+
+@article{inceptae2024,
+  title={Satellite Image Time-Series Classification with Inception-Enhanced Temporal Attention Encoder},
+  journal={Remote Sensing},
+  volume={16},
+  number={23},
+  pages={4579},
+  year={2024},
+  month={December},
+  url={https://www.mdpi.com/2072-4292/16/23/4579},
+  note={IncepTAE: hybrid local-global temporal attention, 95.65\% accuracy}
+}
+
+@article{gl_tae2023,
+  title={Attention to Both Global and Local Features: A Novel Temporal Encoder for Satellite Image Time Series Classification},
+  journal={Remote Sensing},
+  volume={15},
+  number={3},
+  pages={618},
+  year={2023},
+  month={January},
+  url={https://www.mdpi.com/2072-4292/15/3/618},
+  note={GL-TAE: global-local temporal attention encoder}
+}
+
+@article{unet_temporal_attention,
+  title={Expanding Horizons: U-Net Enhancements for Semantic Segmentation, Forecasting, and Super-Resolution in Ocean Remote Sensing},
+  journal={Journal of Remote Sensing},
+  url={https://spj.science.org/doi/10.34133/remotesensing.0196},
+  note={U-TAE: U-Net with Temporal Attention Encoder}
+}
+
+% 3D CNN and Spatiotemporal Methods
+
+@article{msfcn_3dcnn2021,
+  title={Land cover classification from remote sensing images based on multi-scale fully convolutional network},
+  journal={Geo-spatial Information Science},
+  year={2021},
+  url={https://www.tandfonline.com/doi/full/10.1080/10095020.2021.2017237},
+  note={3D CNN, MSFCN achieves 87.75\% and 77.16\% mIoU}
+}
+
+@article{cross_spatial_temporal2025,
+  title={Cross Spatial Temporal Fusion Attention for Remote Sensing Object Detection via Image Feature Matching},
+  journal={arXiv preprint},
+  year={2025},
+  month={July},
+  url={https://arxiv.org/html/2507.19118v1},
+  note={Pixel vs patch-based comparison}
+}
+
+@article{deep_multimodal_fusion2024,
+  title={Deep Multimodal Fusion for Semantic Segmentation of Remote Sensing Earth Observation Data},
+  journal={arXiv preprint},
+  year={2024},
+  month={October},
+  url={https://arxiv.org/html/2410.00469v1},
+  note={Pixel-level vs patch-level fusion approaches}
+}
+
+% ============================================================================
+% BENCHMARKS AND BASELINES
+% ============================================================================
+
+@article{changeformer2022,
+  title={A Transformer-Based Network for Change Detection in Remote Sensing Using Multiscale Difference-Enhancement},
+  journal={PMC},
+  year={2022},
+  url={https://pmc.ncbi.nlm.nih.gov/articles/PMC9392606/},
+  note={ChangeFormer: hierarchical transformer with lightweight decoder}
+}
+
+@article{satellite_time_series_semantic2024,
+  title={Satellite Image Time Series Semantic Change Detection: Novel Architecture and Analysis of Domain Shift},
+  journal={arXiv preprint},
+  year={2024},
+  month={July},
+  url={https://arxiv.org/html/2407.07616v1},
+  note={Domain shift analysis for SITS change detection}
+}
+
+% ============================================================================
+% ADDITIONAL RESOURCES
+% ============================================================================
+
+@misc{awesome_change_detection,
+  title={awesome-remote-sensing-change-detection},
+  author={Wen, Haowei},
+  url={https://github.com/wenhwu/awesome-remote-sensing-change-detection},
+  note={Comprehensive compilation of datasets, tools, methods, competitions}
+}
+
+@misc{satellite_dl_techniques,
+  title={Techniques for deep learning with satellite \& aerial imagery},
+  url={https://github.com/satellite-image-deep-learning/techniques},
+  note={Curated list of deep learning techniques for satellite imagery}
+}
+
+@misc{spatiotemporal_fusion_survey,
+  title={Deep Learning Spatiotemporal Fusion Survey},
+  author={Cui, Yingchao},
+  journal={Information Fusion},
+  year={2026},
+  url={https://github.com/yc-cui/Deep-Learning-Spatiotemporal-Fusion-Survey},
+  note={Collection of deep learning models for spatiotemporal fusion}
+}
+
+% ============================================================================
+% USAGE EXAMPLES
+% ============================================================================
+
+% For RQ1 (Multi-temporal benefit):
+% \cite{miller2024deep,lstm_multiscale2025,spatial_temporal_fusion2025}
+
+% For RQ2 (Temporal sampling):
+% \cite{subannual_change2015,dense_timeseries2019,sits_analysis_review}
+
+% For RQ3 (1D vs 2D):
+% \cite{tarasiou2023vits,inceptae2024,msfcn_3dcnn2021,unet_temporal_attention}
+
+% For benchmark cautions:
+% \cite{change_detection_reality_check2024}
+
+% For comprehensive overview:
+% \cite{miller2024deep,change_detection_review2024,spatiotemporal_fusion_review2024}

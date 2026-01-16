@@ -1,0 +1,103 @@
+\documentclass[border=10pt]{standalone}
+
+% Required packages
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usetikzlibrary{arrows.meta}
+\usetikzlibrary{calc}
+
+\begin{document}
+
+% Define TikZ styles
+\tikzset{
+    component/.style={
+        rectangle,
+        rounded corners,
+        draw=black,
+        thick,
+        minimum width=3.5cm,
+        minimum height=1.2cm,
+        align=center,
+        font=\small
+    },
+    imagebox/.style={
+        rectangle,
+        rounded corners,
+        draw=black,
+        thick,
+        inner sep=2pt,
+        align=center,
+        font=\small
+    },
+    arrow/.style={
+        -Stealth,
+        thick
+    }
+}
+
+\begin{tikzpicture}[node distance=2.5cm, auto]
+
+    % Top branch (t1)
+    % Input image t1
+    \node[imagebox] (img_t1) {
+        \includegraphics[width=2.5cm]{MScTemplate/figs/input_images/a-0-77133618972711_46-45684360844514_2018.jpg}\\[2pt]
+        {\footnotesize Image at $t_1$ (2018)}
+    };
+
+    % Classifier for t1
+    \node[component, right=of img_t1] (clf_t1) {
+        Single-date\\classifier
+    };
+
+    % Land-cover map for t1
+    \node[imagebox, right=of clf_t1] (map_t1) {
+        \includegraphics[width=2.5cm]{MScTemplate/figs/background_figures/landcover_t1_2018_schematic.png}\\[2pt]
+        {\footnotesize Land-cover map at $t_1$}
+    };
+
+    % Bottom branch (t2)
+    % Input image t2
+    \node[imagebox, below=2cm of img_t1] (img_t2) {
+        \includegraphics[width=2.5cm]{MScTemplate/figs/input_images/a-0-77133618972711_46-45684360844514_2025.jpg}\\[2pt]
+        {\footnotesize Image at $t_2$ (2025)}
+    };
+
+    % Classifier for t2
+    \node[component, right=of img_t2] (clf_t2) {
+        Single-date\\classifier
+    };
+
+    % Land-cover map for t2
+    \node[imagebox, right=of clf_t2] (map_t2) {
+        \includegraphics[width=2.5cm]{MScTemplate/figs/background_figures/landcover_t2_2025_schematic.png}\\[2pt]
+        {\footnotesize Land-cover map at $t_2$}
+    };
+
+    % Comparison stage (vertically centered between the two branches)
+    \node[component, right=3.5cm of $(map_t1)!0.5!(map_t2)$] (comparison) {
+        Post-classification\\comparison
+    };
+
+    % Final result (aligned with comparison)
+    \node[imagebox, right=of comparison] (result) {
+        \includegraphics[width=2.5cm]{MScTemplate/figs/background_figures/change_detection_result_schematic.png}\\[2pt]
+        {\footnotesize Change detection result}
+    };
+
+    % Arrows - Top branch
+    \draw[arrow] (img_t1) -- (clf_t1);
+    \draw[arrow] (clf_t1) -- (map_t1);
+    \draw[arrow] (map_t1) -- (comparison);
+
+    % Arrows - Bottom branch
+    \draw[arrow] (img_t2) -- (clf_t2);
+    \draw[arrow] (clf_t2) -- (map_t2);
+    \draw[arrow] (map_t2) -- (comparison);
+
+    % Arrow to final result
+    \draw[arrow] (comparison) -- (result);
+
+\end{tikzpicture}
+
+\end{document}
