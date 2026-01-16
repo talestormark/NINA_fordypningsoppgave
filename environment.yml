@@ -1,0 +1,52 @@
+# load Anaconda3/2024.02-1 && conda activate masterthesis
+
+name: masterthesis
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Python
+  - python=3.11
+
+  # Core scientific computing
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - scikit-image
+
+  # Deep learning (PyTorch)
+  - pytorch::pytorch>=2.0
+  - pytorch::torchvision
+  - pytorch::torchaudio
+
+  # Geospatial
+  - rasterio
+  - geopandas
+  - shapely
+  - fiona
+  - pyproj
+
+  # Visualization
+  - matplotlib
+  - seaborn
+  - pillow
+
+  # Utilities
+  - tqdm
+  - pyyaml
+  - requests
+
+  # Jupyter
+  - jupyter
+  - ipykernel
+  - ipywidgets
+
+  # Pip packages
+  - pip
+  - pip:
+    - albumentations>=1.3.0
+    - segmentation-models-pytorch>=0.3.0
+    - wandb
+    - opencv-python
+    - timm
