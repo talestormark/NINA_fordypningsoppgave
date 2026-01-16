@@ -1,0 +1,70 @@
+% Direct Change Detection (DCD) Pipeline Figure
+% This figure shows the single-stage approach: directly compare images without intermediate classification
+
+\begin{figure}[ht]
+\centering
+
+% Define TikZ styles
+\tikzset{
+    component/.style={
+        rectangle,
+        rounded corners,
+        draw=black,
+        thick,
+        minimum width=3.5cm,
+        minimum height=1.2cm,
+        align=center,
+        font=\small
+    },
+    imagebox/.style={
+        rectangle,
+        rounded corners,
+        draw=black,
+        thick,
+        inner sep=2pt,
+        align=center,
+        font=\small
+    },
+    arrow/.style={
+        -Stealth,
+        thick
+    }
+}
+
+\begin{tikzpicture}[node distance=2.5cm, auto]
+
+    % Top branch (t1)
+    % Input image t1
+    \node[imagebox] (img_t1) {
+        \includegraphics[width=2.5cm]{MScTemplate/figs/input_images/a-0-77133618972711_46-45684360844514_2018.jpg}\\[2pt]
+        {\footnotesize Image at $t_1$ (2018)}
+    };
+
+    % Bottom branch (t2)
+    % Input image t2
+    \node[imagebox, below=2cm of img_t1] (img_t2) {
+        \includegraphics[width=2.5cm]{MScTemplate/figs/input_images/a-0-77133618972711_46-45684360844514_2025.jpg}\\[2pt]
+        {\footnotesize Image at $t_2$ (2025)}
+    };
+
+    % Direct change detection method (vertically centered between the two images)
+    \node[component, right=3.5cm of $(img_t1)!0.5!(img_t2)$] (dcd_method) {
+        Direct change\\detection method
+    };
+
+    % Final result
+    \node[imagebox, right=of dcd_method] (result) {
+        \includegraphics[width=2.5cm]{MScTemplate/figs/input_images/change_detection_result_schematic.png}\\[2pt]
+        {\footnotesize Change detection result}
+    };
+
+    % Arrows
+    \draw[arrow] (img_t1) -- (dcd_method);
+    \draw[arrow] (img_t2) -- (dcd_method);
+    \draw[arrow] (dcd_method) -- (result);
+
+\end{tikzpicture}
+
+\caption{Direct change detection (DCD) pipeline. Multi-temporal images are directly compared to detect changes without intermediate classification steps. This single-stage approach processes both temporal images simultaneously to identify land-cover changes.}
+\label{fig:dcd_pipeline}
+\end{figure}
