@@ -1,5 +1,11 @@
 # Multi-temporal experiments gitignore
 
+# Documentation (managed separately in Overleaf)
+docs/
+
+# SLURM job outputs
+slurm_outputs/
+
 # Outputs - model checkpoints and predictions
 outputs/experiments/**/checkpoints/
 outputs/experiments/**/predictions/*.npy
