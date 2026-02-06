@@ -43,9 +43,9 @@ from multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal i
 from multi_temporal_experiments.config import MT_EXPERIMENTS_DIR
 
 
-def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, total_epochs):
+def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, total_epochs, accumulation_steps=1):
     """
-    Train for one epoch.
+    Train for one epoch with optional gradient accumulation.
 
     Args:
         model: LSTM-UNet model
@@ -55,6 +55,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, tota
         device: Device (cuda/cpu)
         epoch: Current epoch
         total_epochs: Total epochs
+        accumulation_steps: Number of steps to accumulate gradients (default: 1 = no accumulation)
 
     Returns:
         dict: Training metrics
@@ -65,7 +66,9 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, tota
 
     pbar = tqdm(dataloader, desc=f"Epoch {epoch}/{total_epochs} [Train]")
 
-    for batch in pbar:
+    optimizer.zero_grad()  # Zero gradients at start of epoch
+
+    for batch_idx, batch in enumerate(pbar):
         # Get data
         images = batch['image'].to(device)  # (B, T, C, H, W)
         masks = batch['mask'].to(device)    # (B, H, W)
@@ -80,8 +83,8 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, tota
             print(f"  Output stats: min={outputs.min():.3f}, max={outputs.max():.3f}, mean={outputs.mean():.3f}")
             print(f"  NaN count: {torch.isnan(outputs).sum().item()}/{outputs.numel()}")
 
-        # Compute loss
-        loss = criterion(outputs, masks)
+        # Compute loss (scale by accumulation steps for proper averaging)
+        loss = criterion(outputs, masks) / accumulation_steps
 
         # Debug: Check for NaN in loss
         if torch.isnan(loss):
@@ -90,21 +93,23 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, tota
             print(f"  Masks contain NaN: {torch.isnan(masks).any()}")
             print(f"  Mask stats: min={masks.min():.3f}, max={masks.max():.3f}, unique={torch.unique(masks)}")
 
-        # Backward pass
-        optimizer.zero_grad()
+        # Backward pass (accumulate gradients)
         loss.backward()
 
-        # Clip gradients to prevent explosion
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        # Update weights every accumulation_steps batches (or at end of epoch)
+        if (batch_idx + 1) % accumulation_steps == 0 or (batch_idx + 1) == len(dataloader):
+            # Clip gradients to prevent explosion
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-        optimizer.step()
+            optimizer.step()
+            optimizer.zero_grad()
 
-        # Update metrics
-        total_loss += loss.item()
+        # Update metrics (use unscaled loss for logging)
+        total_loss += loss.item() * accumulation_steps
         metrics.update(outputs.detach(), masks)
 
         # Update progress bar
-        pbar.set_postfix({'loss': f'{loss.item():.4f}'})
+        pbar.set_postfix({'loss': f'{loss.item() * accumulation_steps:.4f}'})
 
     # Compute epoch metrics
     avg_loss = total_loss / len(dataloader)
@@ -194,6 +199,7 @@ def train(args):
         classes=1,  # Binary segmentation
         lstm_hidden_dim=args.lstm_hidden_dim,
         lstm_num_layers=args.lstm_num_layers,
+        convlstm_kernel_size=args.convlstm_kernel_size,
         skip_aggregation=args.skip_aggregation,
     )
     model = model.to(device)
@@ -202,11 +208,15 @@ def train(args):
     param_stats = count_parameters(model)
     print(f"Model parameters: {param_stats['total_millions']:.2f}M")
     print(f"  Trainable: {param_stats['trainable_millions']:.2f}M")
+    print(f"  ConvLSTM kernel size: {args.convlstm_kernel_size}x{args.convlstm_kernel_size}")
 
     # Create dataloaders
     print("\nCreating dataloaders...")
     print(f"  Temporal sampling: {args.temporal_sampling}")
     print(f"  Batch size: {args.batch_size}")
+    print(f"  Accumulation steps: {args.accumulation_steps}")
+    effective_batch_size = args.batch_size * args.accumulation_steps
+    print(f"  Effective batch size: {effective_batch_size}")
     print(f"  Image size: {args.image_size}")
 
     dataloaders = get_dataloaders(
@@ -275,21 +285,33 @@ def train(args):
         raise ValueError(f"Unknown scheduler: {args.scheduler}")
 
     # WandB logger
+    # Only include kernel tag for models that use ConvLSTM
+    if args.model_name == 'lstm_unet':
+        kernel_tag = f"k{args.convlstm_kernel_size}x{args.convlstm_kernel_size}"
+        name_parts = [args.model_name, args.temporal_sampling, kernel_tag, args.encoder_name, f"seed{args.seed}"]
+        extra_tags = [kernel_tag]
+    else:
+        name_parts = [args.model_name, args.temporal_sampling, args.encoder_name, f"seed{args.seed}"]
+        extra_tags = []
+
     if args.fold is not None:
-        run_name = f"{args.model_name}_{args.temporal_sampling}_{args.encoder_name}_seed{args.seed}_fold{args.fold}"
+        name_parts.append(f"fold{args.fold}")
+        run_name = "_".join(name_parts)
         tags = [
             args.model_name,
             args.temporal_sampling,
+            *extra_tags,
             args.encoder_name,
             f"seed{args.seed}",
             f"fold{args.fold}",
             f"{args.num_folds}fold_cv",
         ]
     else:
-        run_name = f"{args.model_name}_{args.temporal_sampling}_{args.encoder_name}_seed{args.seed}"
+        run_name = "_".join(name_parts)
         tags = [
             args.model_name,
             args.temporal_sampling,
+            *extra_tags,
             args.encoder_name,
             f"seed{args.seed}",
         ]
@@ -329,9 +351,18 @@ def train(args):
     config['timestamp'] = datetime.now().isoformat()
     config['device'] = str(device)
     config['model_parameters'] = param_stats
+    config['effective_batch_size'] = args.batch_size * args.accumulation_steps
 
     with open(output_dir / 'config.json', 'w') as f:
         json.dump(config, f, indent=2)
+
+    # Early stopping setup
+    epochs_without_improvement = 0
+    best_epoch = 0
+    if args.early_stopping:
+        print(f"\nEarly stopping: enabled (patience={args.patience}, min_epochs={args.min_epochs})")
+    else:
+        print("\nEarly stopping: disabled")
 
     print("\n" + "=" * 80)
     print("STARTING TRAINING")
@@ -344,7 +375,8 @@ def train(args):
 
         # Train
         train_metrics = train_one_epoch(
-            model, train_loader, criterion, optimizer, device, epoch, args.epochs
+            model, train_loader, criterion, optimizer, device, epoch, args.epochs,
+            accumulation_steps=args.accumulation_steps
         )
 
         # Validate
@@ -358,9 +390,9 @@ def train(args):
 
         # Print metrics
         print(f"  Train - Loss: {train_metrics['loss']:.4f}, IoU: {train_metrics['iou']:.4f}, "
-              f"F1: {train_metrics['f1']:.4f}")
+              f"F1: {train_metrics['f1']:.4f}, Prec: {train_metrics['precision']:.4f}, Rec: {train_metrics['recall']:.4f}")
         print(f"  Val   - Loss: {val_metrics['loss']:.4f}, IoU: {val_metrics['iou']:.4f}, "
-              f"F1: {val_metrics['f1']:.4f}")
+              f"F1: {val_metrics['f1']:.4f}, Prec: {val_metrics['precision']:.4f}, Rec: {val_metrics['recall']:.4f}")
         print(f"  LR: {current_lr:.6f}")
 
         # Log to wandb
@@ -373,9 +405,11 @@ def train(args):
         with open(output_dir / 'history.json', 'w') as f:
             json.dump(history, f, indent=2)
 
-        # Save best model
+        # Save best model and track early stopping
         if val_metrics['iou'] > best_val_iou:
             best_val_iou = val_metrics['iou']
+            best_epoch = epoch
+            epochs_without_improvement = 0
             checkpoint = {
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -387,6 +421,20 @@ def train(args):
             }
             torch.save(checkpoint, output_dir / 'best_model.pth')
             print(f"  ✓ Saved best model (IoU: {best_val_iou:.4f})")
+        else:
+            epochs_without_improvement += 1
+            if args.early_stopping:
+                print(f"  No improvement for {epochs_without_improvement}/{args.patience} epochs")
+
+        # Early stopping check
+        if args.early_stopping and epoch >= args.min_epochs:
+            if epochs_without_improvement >= args.patience:
+                print(f"\n{'='*80}")
+                print(f"EARLY STOPPING triggered at epoch {epoch}")
+                print(f"No improvement in validation IoU for {args.patience} epochs")
+                print(f"Best validation IoU: {best_val_iou:.4f} at epoch {best_epoch}")
+                print(f"{'='*80}")
+                break
 
     # Save final model
     final_checkpoint = {
@@ -406,7 +454,10 @@ def train(args):
     print("\n" + "=" * 80)
     print("TRAINING COMPLETE")
     print("=" * 80)
-    print(f"Best validation IoU: {best_val_iou:.4f}")
+    print(f"Best validation IoU: {best_val_iou:.4f} (epoch {best_epoch})")
+    print(f"Final epoch: {epoch}")
+    if args.early_stopping:
+        print(f"Early stopping: {'triggered' if epochs_without_improvement >= args.patience else 'not triggered'}")
     print(f"Checkpoints saved to: {output_dir}")
 
 
@@ -417,7 +468,8 @@ def main():
 
     # Model configuration
     parser.add_argument('--model-name', type=str, default='lstm_unet',
-                        choices=['lstm_unet', 'unet_3d'],
+                        choices=['lstm_unet', 'early_fusion_unet', 'late_fusion_concat',
+                                 'late_fusion_pool', 'conv3d_fusion'],
                         help='Model architecture')
     parser.add_argument('--encoder-name', type=str, default='resnet50',
                         help='Encoder architecture (for LSTM-UNet)')
@@ -429,6 +481,9 @@ def main():
                         help='ConvLSTM hidden dimension')
     parser.add_argument('--lstm-num-layers', type=int, default=2,
                         help='Number of ConvLSTM layers')
+    parser.add_argument('--convlstm-kernel-size', type=int, default=3,
+                        choices=[1, 3],
+                        help='ConvLSTM spatial kernel size (1=per-pixel, 3=patch-based)')
     parser.add_argument('--skip-aggregation', type=str, default='max',
                         choices=['max', 'mean', 'last'],
                         help='Skip connection temporal aggregation')
@@ -441,6 +496,8 @@ def main():
     # Data configuration
     parser.add_argument('--batch-size', type=int, default=4,
                         help='Batch size')
+    parser.add_argument('--accumulation-steps', type=int, default=1,
+                        help='Gradient accumulation steps (effective batch = batch_size * accumulation_steps)')
     parser.add_argument('--image-size', type=int, default=512,
                         help='Image size (square)')
     parser.add_argument('--num-workers', type=int, default=4,
@@ -461,6 +518,14 @@ def main():
     parser.add_argument('--scheduler', type=str, default='linear',
                         choices=['linear', 'cosine'],
                         help='Learning rate scheduler type')
+
+    # Early stopping
+    parser.add_argument('--early-stopping', action='store_true',
+                        help='Enable early stopping based on validation IoU')
+    parser.add_argument('--patience', type=int, default=30,
+                        help='Early stopping patience (epochs without improvement)')
+    parser.add_argument('--min-epochs', type=int, default=50,
+                        help='Minimum epochs before early stopping can trigger')
 
     # Loss configuration
     parser.add_argument('--loss', type=str, default='focal',
