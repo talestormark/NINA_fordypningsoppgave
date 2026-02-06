@@ -33,6 +33,94 @@ from multi_temporal_experiments.config import (
     TEMPORAL_SAMPLING_MODES,
     MT_REPORTS_DIR,
 )
+from tqdm import tqdm
+
+
+def compute_normalization_stats(
+    refids: List[str],
+    sentinel2_dir: Path = None,
+    sample_pixels: int = 10000,
+) -> Dict[str, np.ndarray]:
+    """
+    Compute z-score normalization statistics (mean, std) from a list of refids.
+
+    This should be called with ONLY the training refids for the current fold
+    to avoid data leakage during cross-validation.
+
+    Args:
+        refids: List of reference IDs to compute statistics from
+        sentinel2_dir: Directory containing Sentinel-2 GeoTIFF files
+        sample_pixels: Number of random pixels to sample per tile (for speed)
+
+    Returns:
+        Dict with 'mean' and 'std' arrays of shape (num_bands,)
+    """
+    if sentinel2_dir is None:
+        sentinel2_dir = DATA_DIR / "Sentinel"
+    sentinel2_dir = Path(sentinel2_dir)
+
+    num_bands = len(SENTINEL2_BANDS)
+    num_time_steps = len(YEARS) * len(QUARTERS)  # 14
+
+    # Accumulate pixel values per band
+    all_values = [[] for _ in range(num_bands)]
+
+    for refid in tqdm(refids, desc="Computing normalization stats", leave=False):
+        s2_path = sentinel2_dir / f"{refid}_RGBNIRRSWIRQ_Mosaic.tif"
+
+        if not s2_path.exists():
+            print(f"Warning: Missing Sentinel-2 file for {refid}, skipping")
+            continue
+
+        try:
+            with rasterio.open(s2_path) as src:
+                data = src.read()  # (126, H, W)
+
+            if data.shape[0] != num_time_steps * num_bands:
+                print(f"Warning: {refid} has {data.shape[0]} bands, expected {num_time_steps * num_bands}")
+                continue
+
+            # Reshape: (126, H, W) -> (14, 9, H, W)
+            data = data.reshape(num_time_steps, num_bands, data.shape[1], data.shape[2])
+
+            # Sample random pixels for efficiency
+            H, W = data.shape[2], data.shape[3]
+            total_pixels = H * W
+
+            if total_pixels > sample_pixels:
+                indices = np.random.choice(total_pixels, size=sample_pixels, replace=False)
+                h_idx = indices // W
+                w_idx = indices % W
+                samples = data[:, :, h_idx, w_idx]  # (14, 9, sample_pixels)
+            else:
+                samples = data.reshape(num_time_steps, num_bands, -1)
+
+            # Accumulate values per band (pooling over time and space)
+            for band_idx in range(num_bands):
+                band_data = samples[:, band_idx, :].flatten()
+                all_values[band_idx].append(band_data)
+
+        except Exception as e:
+            print(f"Error processing {refid}: {e}")
+            continue
+
+    # Compute statistics
+    means = np.zeros(num_bands, dtype=np.float64)
+    stds = np.zeros(num_bands, dtype=np.float64)
+
+    for band_idx in range(num_bands):
+        if all_values[band_idx]:
+            band_values = np.concatenate(all_values[band_idx])
+            means[band_idx] = np.nanmean(band_values)
+            stds[band_idx] = np.nanstd(band_values)
+
+    # Prevent division by zero
+    stds[stds == 0] = 1.0
+
+    return {
+        "mean": means,
+        "std": stds,
+    }
 
 
 class MultiTemporalSentinel2Dataset(Dataset):
@@ -43,7 +131,8 @@ class MultiTemporalSentinel2Dataset(Dataset):
         refids: List of reference IDs for tiles
         sentinel2_dir: Directory containing Sentinel-2 GeoTIFF files
         mask_dir: Directory containing mask GeoTIFF files
-        normalization_stats_path: Path to normalization statistics CSV
+        normalization_stats: Dict with 'mean' and 'std' arrays, or path to CSV file.
+                            Should be computed from training samples only to avoid leakage.
         temporal_sampling: Sampling mode ('quarterly', 'annual', 'bi_temporal')
         transform: Albumentations transform (applied consistently across time)
         output_format: 'LSTM' (B,T,C,H,W) or '3D' (B,C,T,H,W)
@@ -54,7 +143,7 @@ class MultiTemporalSentinel2Dataset(Dataset):
         refids: List[str],
         sentinel2_dir: str = None,
         mask_dir: str = None,
-        normalization_stats_path: str = None,
+        normalization_stats: Dict[str, np.ndarray] = None,
         temporal_sampling: str = "annual",
         transform: Optional[A.Compose] = None,
         output_format: str = "LSTM",
@@ -66,11 +155,17 @@ class MultiTemporalSentinel2Dataset(Dataset):
         self.output_format = output_format
         self.transform = transform
 
-        # Load normalization statistics
-        if normalization_stats_path is None:
+        # Load or use provided normalization statistics
+        if normalization_stats is None:
+            # Fallback to CSV file (for backwards compatibility / testing)
             normalization_stats_path = MT_REPORTS_DIR / "sentinel2_normalization_stats.csv"
-
-        self.norm_stats = self._load_normalization_stats(normalization_stats_path)
+            self.norm_stats = self._load_normalization_stats(normalization_stats_path)
+        elif isinstance(normalization_stats, (str, Path)):
+            # Path to CSV file provided
+            self.norm_stats = self._load_normalization_stats(normalization_stats)
+        else:
+            # Dict with mean/std arrays provided directly
+            self.norm_stats = normalization_stats
 
         # Get temporal sampling configuration
         if temporal_sampling not in TEMPORAL_SAMPLING_MODES:
@@ -179,8 +274,29 @@ class MultiTemporalSentinel2Dataset(Dataset):
             selected_data = np.stack(selected_data, axis=0)  # (7, 9, H, W)
 
         elif self.temporal_sampling == "bi_temporal":
-            # Use only 2018 Q2 (index 0) and 2024 Q3 (index 13)
-            selected_data = np.stack([data[0], data[13]], axis=0)  # (2, 9, H, W)
+            # Use annual composites for first (2018) and last (2024) years only
+            # This ensures season-consistency with the annual sampling mode
+            selected_data = []
+            for year_idx in [0, 6]:  # 2018 and 2024
+                q2_idx = year_idx * 2
+                q3_idx = year_idx * 2 + 1
+
+                q2_data = data[q2_idx]  # (9, H, W)
+                q3_data = data[q3_idx]  # (9, H, W)
+
+                # Same Q2/Q3 averaging logic as annual mode
+                q2_nan_pct = np.isnan(q2_data).sum() / q2_data.size * 100
+                q3_nan_pct = np.isnan(q3_data).sum() / q3_data.size * 100
+
+                if q2_nan_pct > 50 and q3_nan_pct < 20:
+                    year_data = q3_data
+                elif q3_nan_pct > 50 and q2_nan_pct < 20:
+                    year_data = q2_data
+                else:
+                    year_data = (q2_data + q3_data) / 2.0
+
+                selected_data.append(year_data)
+            selected_data = np.stack(selected_data, axis=0)  # (2, 9, H, W)
 
         else:
             raise ValueError(f"Unknown temporal_sampling: {self.temporal_sampling}")
@@ -403,11 +519,18 @@ def get_dataloaders(
 
     print(f"  Test samples: {len(test_refids)} (held out)")
 
+    # Compute normalization statistics from TRAINING samples only (per-fold)
+    # This avoids data leakage during cross-validation
+    print(f"\n  Computing normalization stats from {len(train_refids)} training samples...")
+    norm_stats = compute_normalization_stats(train_refids)
+    print(f"  Stats computed: mean range [{norm_stats['mean'].min():.1f}, {norm_stats['mean'].max():.1f}], "
+          f"std range [{norm_stats['std'].min():.2f}, {norm_stats['std'].max():.2f}]")
 
-    # Create datasets
+    # Create datasets (all use same normalization stats computed from training set)
     train_dataset = MultiTemporalSentinel2Dataset(
         refids=train_refids,
         temporal_sampling=temporal_sampling,
+        normalization_stats=norm_stats,
         transform=get_transform(is_train=True, image_size=image_size),
         output_format=output_format,
     )
@@ -415,6 +538,7 @@ def get_dataloaders(
     val_dataset = MultiTemporalSentinel2Dataset(
         refids=val_refids,
         temporal_sampling=temporal_sampling,
+        normalization_stats=norm_stats,
         transform=get_transform(is_train=False, image_size=image_size),
         output_format=output_format,
     )
@@ -422,6 +546,7 @@ def get_dataloaders(
     test_dataset = MultiTemporalSentinel2Dataset(
         refids=test_refids,
         temporal_sampling=temporal_sampling,
+        normalization_stats=norm_stats,
         transform=get_transform(is_train=False, image_size=image_size),
         output_format=output_format,
     )
