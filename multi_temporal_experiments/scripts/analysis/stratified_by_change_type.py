@@ -60,21 +60,21 @@ EXPERIMENTS = {
 
 
 def load_geojson_metadata():
-    """Load change_type metadata from geojson, filtered to Norway."""
+    """Load change_type metadata from geojson for all countries."""
     with open(GEOJSON_PATH) as f:
         data = json.load(f)
 
     metadata = {}
     for feat in data['features']:
         props = feat['properties']
-        if props.get('country') == 'NOR':
-            plotid = props['PLOTID']
-            metadata[plotid] = {
-                'change_type': props.get('change_type', 'Unknown'),
-                'loss_type': props.get('r', 'Unknown'),
-            }
+        plotid = props['PLOTID']
+        metadata[plotid] = {
+            'change_type': props.get('change_type', 'Unknown'),
+            'loss_type': props.get('r', 'Unknown'),
+            'country': props.get('country', 'Unknown'),
+        }
 
-    print(f"Loaded metadata for {len(metadata)} Norwegian tiles")
+    print(f"Loaded metadata for {len(metadata)} tiles from geojson")
     return metadata
 
 
@@ -323,7 +323,7 @@ def main():
     print("""
 \\begin{table}[h]
 \\centering
-\\caption{Per-type IoU for LSTM-7 (out-of-fold, $n=45$ Norwegian tiles).
+\\caption{Per-type IoU comparison (out-of-fold, $n=45$ European tiles).
 Types with $n < 3$ should be interpreted with caution.}
 \\label{tab:per-type-iou}
 \\begin{tabular}{lccccc}
