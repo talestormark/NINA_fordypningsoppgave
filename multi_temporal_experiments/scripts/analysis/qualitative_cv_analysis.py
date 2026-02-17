@@ -153,9 +153,11 @@ NORM_STATS_CACHE = NormStatsCache()
 
 def get_fold_assignments(refids: list, num_folds: int = 5, seed: int = 42):
     """
-    Get fold assignments using the SAME logic as training.
+    Get fold assignments using the EXACT same logic and ordering as training.
 
-    Uses sample_change_levels.csv for stratification, matching the dataset code.
+    Loads train/val split files and concatenates them in the same order as
+    get_dataloaders() in dataset_multitemporal.py, ensuring StratifiedKFold
+    produces identical fold assignments.
 
     Returns:
         fold_assignments: dict {refid: fold_index}
@@ -163,8 +165,15 @@ def get_fold_assignments(refids: list, num_folds: int = 5, seed: int = 42):
     """
     from sklearn.model_selection import StratifiedKFold
 
-    # Load change levels (same file as dataset_multitemporal.py uses)
     base_dir = Path(__file__).resolve().parent.parent.parent.parent
+
+    # Load split files in the SAME order as get_dataloaders()
+    splits_dir = base_dir / "outputs" / "splits"
+    train_refids_orig = [line.strip() for line in open(splits_dir / "train_refids.txt")]
+    val_refids_orig = [line.strip() for line in open(splits_dir / "val_refids.txt")]
+    trainval_refids = train_refids_orig + val_refids_orig
+
+    # Load change levels (same file as dataset_multitemporal.py uses)
     change_level_path = base_dir / "multi_temporal_experiments" / "sample_change_levels.csv"
 
     if not change_level_path.exists():
@@ -176,8 +185,8 @@ def get_fold_assignments(refids: list, num_folds: int = 5, seed: int = 42):
     change_level_df = pd.read_csv(change_level_path)
     refid_to_level = dict(zip(change_level_df['refid'], change_level_df['change_level']))
 
-    # Get change levels for all refids
-    change_levels = [refid_to_level[refid] for refid in refids]
+    # Get change levels in trainval order (matching get_dataloaders)
+    change_levels = [refid_to_level[refid] for refid in trainval_refids]
 
     # Create stratified k-fold splits (same as training)
     skf = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=seed)
@@ -185,10 +194,10 @@ def get_fold_assignments(refids: list, num_folds: int = 5, seed: int = 42):
     fold_assignments = {}
     fold_train_refids = {}
 
-    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(refids, change_levels)):
+    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(trainval_refids, change_levels)):
         for i in val_idx:
-            fold_assignments[refids[i]] = fold_idx
-        fold_train_refids[fold_idx] = [refids[i] for i in train_idx]
+            fold_assignments[trainval_refids[i]] = fold_idx
+        fold_train_refids[fold_idx] = [trainval_refids[i] for i in train_idx]
 
     return fold_assignments, fold_train_refids
 
@@ -494,7 +503,7 @@ def select_divergence_tiles(iou_data: dict, num_examples: int = 2):
 
 def create_tpfpfn_overlay(pred_prob: np.ndarray, mask: np.ndarray,
                           rgb: np.ndarray, threshold: float = 0.5,
-                          alpha: float = 0.5) -> np.ndarray:
+                          alpha: float = 0.7) -> np.ndarray:
     """Create TP/FP/FN overlay on RGB image."""
     pred_binary = pred_prob > threshold
     mask_binary = mask > 0
@@ -523,18 +532,26 @@ def plot_cross_mode_comparison(
     threshold: float = 0.5,
 ):
     """
-    Generate clean cross-mode comparison figure for a single tile.
+    Generate cross-mode comparison figure with context row.
 
-    Minimal design: 3 rows (one per temporal mode) x 3 columns (prob, prediction, error overlay).
-    IoU shown in row labels. Other details belong in figure caption.
+    Layout: 4 rows x 3 columns.
+      Row 0 (context): 2018 Composite | 2024 Composite | Ground Truth
+      Row 1-3 (models): Probability | Binary Prediction | TP/FP/FN Overlay
+    Labels (a)-(c) above context row, (d)-(f) below last model row.
     """
-    fig = plt.figure(figsize=(8, 8))
+    fig = plt.figure(figsize=(8, 10.5))
 
-    # Create grid: 3 mode rows, 3 columns
-    gs = fig.add_gridspec(3, 3, hspace=0.15, wspace=0.08)
+    # Create grid: 1 context row + 3 model rows, with extra gap after context row
+    gs = fig.add_gridspec(
+        4, 3,
+        hspace=0.08, wspace=0.08,
+        height_ratios=[1, 1, 1, 1],
+    )
 
-    # Get 2024 RGB for overlay background
-    composite_2024 = compute_annual_composite(raw_data, year_idx=6)
+    # Compute 2018 and 2024 RGB composites
+    composite_2018 = compute_annual_composite(raw_data, year_idx=0)  # 2018
+    rgb_2018 = get_rgb_from_composite(composite_2018)
+    composite_2024 = compute_annual_composite(raw_data, year_idx=6)  # 2024
     rgb_2024 = get_rgb_from_composite(composite_2024)
 
     # Center crop (same as model)
@@ -543,15 +560,42 @@ def plot_cross_mode_comparison(
     start_w = (W - 64) // 2
 
     assert mask.shape == (64, 64), f"Mask shape mismatch: expected (64, 64), got {mask.shape}"
+    rgb_2018 = rgb_2018[start_h:start_h+64, start_w:start_w+64]
     rgb_2024 = rgb_2024[start_h:start_h+64, start_w:start_w+64]
 
-    # Mode rows: T=2, T=7, T=14
+    # --- Context row (row 0) ---
+    context_labels = ['(a) 2018 Composite', '(b) 2024 Composite', '(c) Ground Truth']
+
+    # Col 0: 2018 RGB
+    ax_2018 = fig.add_subplot(gs[0, 0])
+    ax_2018.imshow(rgb_2018)
+    ax_2018.set_ylabel('Input', fontsize=10, fontweight='bold')
+    ax_2018.set_xticks([])
+    ax_2018.set_yticks([])
+    ax_2018.set_title(context_labels[0], fontsize=9)
+
+    # Col 1: 2024 RGB
+    ax_2024 = fig.add_subplot(gs[0, 1])
+    ax_2024.imshow(rgb_2024)
+    ax_2024.set_xticks([])
+    ax_2024.set_yticks([])
+    ax_2024.set_title(context_labels[1], fontsize=9)
+
+    # Col 2: Ground truth mask
+    ax_gt = fig.add_subplot(gs[0, 2])
+    ax_gt.imshow(mask, cmap='gray', vmin=0, vmax=1)
+    ax_gt.set_xticks([])
+    ax_gt.set_yticks([])
+    ax_gt.set_title(context_labels[2], fontsize=9)
+
+    # --- Model rows (rows 1-3) ---
     mode_order = ['bi_temporal', 'annual', 'bi_seasonal']
     mode_names = ['LSTM-2', 'LSTM-7', 'LSTM-14']
-
-    col_labels = ['(a)', '(b)', '(c)']
+    model_labels = ['(d) Probability', '(e) Prediction', '(f) TP / FP / FN']
+    ax_first_model_row = None  # track for separator positioning
 
     for row_idx, (condition, name) in enumerate(zip(mode_order, mode_names)):
+        grid_row = row_idx + 1  # offset by context row
         pred_prob = predictions[condition]
         m = metrics[condition]
         iou_pct = m['iou'] * 100
@@ -560,36 +604,48 @@ def plot_cross_mode_comparison(
         row_label = f"{name}\n({iou_pct:.1f}%)"
 
         # Column 0: Probability map
-        ax_prob = fig.add_subplot(gs[row_idx, 0])
+        ax_prob = fig.add_subplot(gs[grid_row, 0])
         ax_prob.imshow(pred_prob, cmap='viridis', vmin=0, vmax=1)
         ax_prob.set_ylabel(row_label, fontsize=10, fontweight='bold')
         ax_prob.set_xticks([])
         ax_prob.set_yticks([])
-        if row_idx == 2:  # Last row
-            ax_prob.text(0.5, -0.1, col_labels[0], transform=ax_prob.transAxes,
-                        fontsize=10, ha='center')
+        if row_idx == 0:
+            ax_first_model_row = ax_prob
+        if row_idx == 2:  # Last model row
+            ax_prob.text(0.5, -0.12, model_labels[0], transform=ax_prob.transAxes,
+                        fontsize=9, ha='center')
 
         # Column 1: Binary prediction
-        ax_pred = fig.add_subplot(gs[row_idx, 1])
+        ax_pred = fig.add_subplot(gs[grid_row, 1])
         ax_pred.imshow(pred_prob > threshold, cmap='gray', vmin=0, vmax=1)
         ax_pred.set_xticks([])
         ax_pred.set_yticks([])
         if row_idx == 2:
-            ax_pred.text(0.5, -0.1, col_labels[1], transform=ax_pred.transAxes,
-                        fontsize=10, ha='center')
+            ax_pred.text(0.5, -0.12, model_labels[1], transform=ax_pred.transAxes,
+                        fontsize=9, ha='center')
 
         # Column 2: TP/FP/FN overlay
-        ax_overlay = fig.add_subplot(gs[row_idx, 2])
+        ax_overlay = fig.add_subplot(gs[grid_row, 2])
         overlay = create_tpfpfn_overlay(pred_prob, mask, rgb_2024, threshold=threshold)
         ax_overlay.imshow(overlay)
         ax_overlay.set_xticks([])
         ax_overlay.set_yticks([])
         if row_idx == 2:
-            ax_overlay.text(0.5, -0.1, col_labels[2], transform=ax_overlay.transAxes,
-                           fontsize=10, ha='center')
+            ax_overlay.text(0.5, -0.12, model_labels[2], transform=ax_overlay.transAxes,
+                           fontsize=9, ha='center')
 
     plt.tight_layout()
-    plt.subplots_adjust(bottom=0.08)
+    plt.subplots_adjust(bottom=0.06)
+
+    # Visual separator between context row and model rows (after layout is finalized)
+    row0_bottom = ax_gt.get_position().y0  # bottom of context row
+    row1_top = ax_first_model_row.get_position().y1  # top of first model row
+    sep_y = (row0_bottom + row1_top) / 2.0
+    fig.add_artist(plt.Line2D(
+        [0.06, 0.97], [sep_y, sep_y],
+        transform=fig.transFigure,
+        color='gray', linewidth=0.8, linestyle='--'
+    ))
 
     # Save figure
     output_file = output_dir / f"crossmode_{category}_{refid[:30]}.png"
@@ -603,13 +659,102 @@ def plot_cross_mode_comparison(
 # MAIN ANALYSIS
 # =============================================================================
 
+def generate_figure_for_refid(
+    refid: str,
+    category: str,
+    refids: list,
+    fold_assignments: dict,
+    fold_train_refids: dict,
+    output_dir: Path,
+    device: torch.device,
+):
+    """Generate a cross-mode comparison figure for a single refid."""
+    fold = fold_assignments.get(refid, -1)
+    if fold < 0:
+        print(f"  Warning: Could not determine fold for {refid}, skipping")
+        return None
+
+    # Load raw data
+    raw_data = load_raw_sentinel2(refid)
+    H_raw, W_raw = raw_data.shape[2], raw_data.shape[3]
+
+    # Load and binarize mask with proper alignment
+    start_h = (H_raw - 64) // 2
+    start_w = (W_raw - 64) // 2
+    mask_full = load_mask(refid, target_shape=(H_raw, W_raw))
+    mask = mask_full[start_h:start_h+64, start_w:start_w+64]
+    assert mask.shape == (64, 64), f"Mask shape after crop: {mask.shape}"
+
+    # Get normalization stats for this fold (cached)
+    train_refids = fold_train_refids[fold]
+    norm_stats = NORM_STATS_CACHE.get_stats(fold, train_refids)
+
+    # Get predictions for each condition
+    predictions = {}
+    metrics = {}
+
+    for condition, exp_config in EXPERIMENTS.items():
+        temporal_sampling = exp_config['temporal_sampling']
+
+        try:
+            model, config = MODEL_CACHE.get_model(condition, fold, device)
+        except FileNotFoundError as e:
+            print(f"  Warning: {e}")
+            continue
+
+        from albumentations import Compose, CenterCrop
+
+        transform = Compose([
+            CenterCrop(config['image_size'], config['image_size']),
+        ])
+
+        dataset = MultiTemporalSentinel2Dataset(
+            refids=[refid],
+            temporal_sampling=temporal_sampling,
+            normalization_stats=norm_stats,
+            transform=transform,
+            output_format="LSTM",
+        )
+
+        sample = dataset[0]
+        images = sample['image'].unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            output = model(images)
+            pred_prob = torch.sigmoid(output).cpu().numpy().squeeze()
+
+        predictions[condition] = pred_prob
+        metrics[condition] = compute_sample_metrics(pred_prob, mask, threshold=0.5)
+
+    if len(predictions) == 3:
+        output_file, _ = plot_cross_mode_comparison(
+            refid=refid,
+            raw_data=raw_data,
+            predictions=predictions,
+            mask=mask,
+            metrics=metrics,
+            category=category,
+            output_dir=output_dir,
+        )
+        print(f"  Saved: {output_file.name}")
+        return output_file
+    else:
+        print(f"  Warning: Missing predictions for {refid}, skipping")
+        return None
+
+
 def run_qualitative_analysis(
     num_examples: int = 3,
     output_dir: Path = None,
     device: torch.device = None,
+    specific_refids: list = None,
 ):
     """
-    Run cross-mode qualitative analysis with all fixes applied.
+    Run cross-mode qualitative analysis.
+
+    Args:
+        specific_refids: If provided, only generate figures for these refids
+                         (list of refid strings). Skips automatic tile selection.
     """
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -637,7 +782,33 @@ def run_qualitative_analysis(
     print("\nComputing fold assignments (using sample_change_levels.csv)...")
     fold_assignments, fold_train_refids = get_fold_assignments(refids)
 
-    # Select tiles: mean IoU-based + divergence-based
+    # --- Specific refids mode ---
+    if specific_refids:
+        print(f"\nGenerating figures for {len(specific_refids)} specific tile(s)...")
+        for refid in specific_refids:
+            # Match partial refid prefixes (filenames are truncated to 30 chars)
+            matched = [r for r in refids if r.startswith(refid) or refid.startswith(r)]
+            if not matched:
+                print(f"  Warning: refid '{refid}' not found in dataset, skipping")
+                continue
+            full_refid = matched[0]
+            print(f"  Processing: {full_refid}")
+            generate_figure_for_refid(
+                refid=full_refid,
+                category="selected",
+                refids=refids,
+                fold_assignments=fold_assignments,
+                fold_train_refids=fold_train_refids,
+                output_dir=output_dir,
+                device=device,
+            )
+
+        print(f"\n{'='*60}")
+        print(f"Visualizations saved to: {output_dir}")
+        print(f"{'='*60}")
+        return output_dir
+
+    # --- Automatic tile selection mode ---
     print("\n" + "-"*60)
     print("TILE SELECTION: Mean IoU-based")
     print("-"*60)
@@ -665,83 +836,15 @@ def run_qualitative_analysis(
 
         for idx in tqdm(indices, desc=f"{cat}"):
             refid = refids[idx]
-            fold = fold_assignments.get(refid, -1)
-
-            if fold < 0:
-                print(f"  Warning: Could not determine fold for {refid}, skipping")
-                continue
-
-            # Load raw data
-            raw_data = load_raw_sentinel2(refid)
-            H_raw, W_raw = raw_data.shape[2], raw_data.shape[3]
-
-            # Load and binarize mask with proper alignment
-            start_h = (H_raw - 64) // 2
-            start_w = (W_raw - 64) // 2
-            mask_full = load_mask(refid, target_shape=(H_raw, W_raw))
-            mask = mask_full[start_h:start_h+64, start_w:start_w+64]
-
-            # Verify shape
-            assert mask.shape == (64, 64), f"Mask shape after crop: {mask.shape}"
-
-            # Get normalization stats for this fold (cached)
-            train_refids = fold_train_refids[fold]
-            norm_stats = NORM_STATS_CACHE.get_stats(fold, train_refids)
-
-            # Get predictions for each condition
-            predictions = {}
-            metrics = {}
-
-            for condition, exp_config in EXPERIMENTS.items():
-                temporal_sampling = exp_config['temporal_sampling']
-
-                try:
-                    # Get model from cache
-                    model, config = MODEL_CACHE.get_model(condition, fold, device)
-                except FileNotFoundError as e:
-                    print(f"  Warning: {e}")
-                    continue
-
-                # Create dataset for this sample
-                # NOTE: Don't include ToTensorV2 - the dataset handles tensor conversion
-                from albumentations import Compose, CenterCrop
-
-                transform = Compose([
-                    CenterCrop(config['image_size'], config['image_size']),
-                ])
-
-                dataset = MultiTemporalSentinel2Dataset(
-                    refids=[refid],
-                    temporal_sampling=temporal_sampling,
-                    normalization_stats=norm_stats,
-                    transform=transform,
-                    output_format="LSTM",
-                )
-
-                sample = dataset[0]
-                images = sample['image'].unsqueeze(0).to(device)
-
-                with torch.no_grad():
-                    output = model(images)
-                    pred_prob = torch.sigmoid(output).cpu().numpy().squeeze()
-
-                predictions[condition] = pred_prob
-                metrics[condition] = compute_sample_metrics(pred_prob, mask, threshold=0.5)
-
-            # Generate cross-mode comparison figure
-            if len(predictions) == 3:
-                output_file, _ = plot_cross_mode_comparison(
-                    refid=refid,
-                    raw_data=raw_data,
-                    predictions=predictions,
-                    mask=mask,
-                    metrics=metrics,
-                    category=cat,
-                    output_dir=output_dir,
-                )
-                print(f"  Saved: {output_file.name}")
-            else:
-                print(f"  Warning: Missing predictions for {refid}, skipping")
+            generate_figure_for_refid(
+                refid=refid,
+                category=cat,
+                refids=refids,
+                fold_assignments=fold_assignments,
+                fold_train_refids=fold_train_refids,
+                output_dir=output_dir,
+                device=device,
+            )
 
     print(f"\n{'='*60}")
     print(f"Visualizations saved to: {output_dir}")
@@ -756,6 +859,9 @@ def main():
                         help='Number of examples per category (good/hard/failure)')
     parser.add_argument('--output-dir', type=str, default=None,
                         help='Output directory')
+    parser.add_argument('--refids', type=str, nargs='+', default=None,
+                        help='Generate figures for specific refid(s) only. '
+                             'Prefix matching supported.')
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -769,6 +875,7 @@ def main():
         num_examples=args.num_examples,
         output_dir=output_dir,
         device=device,
+        specific_refids=args.refids,
     )
 
     print("\n" + "="*60)
