@@ -55,3 +55,18 @@ scripts/classify_images_sam.py
 !docs/papers/README.md
 !docs/papers/references.bib
 
+# LaTeX files (managed in Overleaf)
+*.tex
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.gif
+
+# Markdown docs (experiment logs, notes, plans)
+*.md
+# Keep top-level project README if one exists
+!README.md
+
