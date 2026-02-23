@@ -449,6 +449,8 @@ def get_dataloaders(
     fold: int = None,
     num_folds: int = 5,
     seed: int = 42,
+    sentinel2_dir: Path = None,
+    mask_dir: Path = None,
 ) -> Dict[str, torch.utils.data.DataLoader]:
     """
     Create train/val/test dataloaders for multi-temporal Sentinel-2.
@@ -462,6 +464,8 @@ def get_dataloaders(
         fold: Fold index for k-fold CV (0 to num_folds-1). If None, uses original split.
         num_folds: Number of folds for k-fold CV (default: 5)
         seed: Random seed for fold generation (default: 42)
+        sentinel2_dir: Override directory for Sentinel-2 files (default: config DATA_DIR/Sentinel)
+        mask_dir: Override directory for mask files (default: config DATA_DIR/Land_take_masks)
 
     Returns:
         Dictionary with 'train', 'val', 'test' dataloaders
@@ -522,13 +526,15 @@ def get_dataloaders(
     # Compute normalization statistics from TRAINING samples only (per-fold)
     # This avoids data leakage during cross-validation
     print(f"\n  Computing normalization stats from {len(train_refids)} training samples...")
-    norm_stats = compute_normalization_stats(train_refids)
+    norm_stats = compute_normalization_stats(train_refids, sentinel2_dir=sentinel2_dir)
     print(f"  Stats computed: mean range [{norm_stats['mean'].min():.1f}, {norm_stats['mean'].max():.1f}], "
           f"std range [{norm_stats['std'].min():.2f}, {norm_stats['std'].max():.2f}]")
 
     # Create datasets (all use same normalization stats computed from training set)
     train_dataset = MultiTemporalSentinel2Dataset(
         refids=train_refids,
+        sentinel2_dir=sentinel2_dir,
+        mask_dir=mask_dir,
         temporal_sampling=temporal_sampling,
         normalization_stats=norm_stats,
         transform=get_transform(is_train=True, image_size=image_size),
@@ -537,6 +543,8 @@ def get_dataloaders(
 
     val_dataset = MultiTemporalSentinel2Dataset(
         refids=val_refids,
+        sentinel2_dir=sentinel2_dir,
+        mask_dir=mask_dir,
         temporal_sampling=temporal_sampling,
         normalization_stats=norm_stats,
         transform=get_transform(is_train=False, image_size=image_size),
@@ -545,6 +553,8 @@ def get_dataloaders(
 
     test_dataset = MultiTemporalSentinel2Dataset(
         refids=test_refids,
+        sentinel2_dir=sentinel2_dir,
+        mask_dir=mask_dir,
         temporal_sampling=temporal_sampling,
         normalization_stats=norm_stats,
         transform=get_transform(is_train=False, image_size=image_size),
