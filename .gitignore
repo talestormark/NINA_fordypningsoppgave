@@ -53,10 +53,11 @@ scripts/classify_images_sam.py
 # Documentation - keep structure, ignore PDFs
 *.pdf
 !docs/papers/README.md
-!docs/papers/references.bib
+
 
 # LaTeX files (managed in Overleaf)
 *.tex
+*.bib
 
 # Images
 *.png
