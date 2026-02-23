@@ -219,6 +219,15 @@ def train(args):
     print(f"  Effective batch size: {effective_batch_size}")
     print(f"  Image size: {args.image_size}")
 
+    # Derive data directories from --data-dir if specified
+    sentinel2_dir = None
+    mask_dir = None
+    if args.data_dir:
+        data_dir = Path(args.data_dir)
+        sentinel2_dir = data_dir / "sentinel"
+        mask_dir = data_dir / "masks"
+        print(f"  Data dir: {args.data_dir}")
+
     dataloaders = get_dataloaders(
         temporal_sampling=args.temporal_sampling,
         batch_size=args.batch_size,
@@ -228,6 +237,8 @@ def train(args):
         fold=args.fold,
         num_folds=args.num_folds,
         seed=args.seed,
+        sentinel2_dir=sentinel2_dir,
+        mask_dir=mask_dir,
     )
 
     train_loader = dataloaders['train']
@@ -266,23 +277,41 @@ def train(args):
         raise ValueError(f"Unknown optimizer: {args.optimizer}")
 
     # Learning rate scheduler
+    main_epochs = args.epochs - args.warmup_epochs
     if args.scheduler == 'linear':
-        scheduler = optim.lr_scheduler.LinearLR(
+        main_scheduler = optim.lr_scheduler.LinearLR(
             optimizer,
             start_factor=1.0,
             end_factor=0.01,  # Decay to 1% of initial LR
-            total_iters=args.epochs,
+            total_iters=main_epochs,
         )
-        print(f"LR Scheduler: Linear decay (1.0 → 0.01 over {args.epochs} epochs)")
+        sched_desc = f"Linear decay (1.0 -> 0.01 over {main_epochs} epochs)"
     elif args.scheduler == 'cosine':
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(
+        main_scheduler = optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
-            T_max=args.epochs,
+            T_max=main_epochs,
             eta_min=args.lr * 0.01,  # Minimum LR = 1% of initial
         )
-        print(f"LR Scheduler: Cosine annealing (T_max={args.epochs}, eta_min={args.lr * 0.01})")
+        sched_desc = f"Cosine annealing (T_max={main_epochs}, eta_min={args.lr * 0.01})"
     else:
         raise ValueError(f"Unknown scheduler: {args.scheduler}")
+
+    if args.warmup_epochs > 0:
+        warmup_scheduler = optim.lr_scheduler.LinearLR(
+            optimizer,
+            start_factor=1e-3,  # Start at lr * 0.001
+            end_factor=1.0,
+            total_iters=args.warmup_epochs,
+        )
+        scheduler = optim.lr_scheduler.SequentialLR(
+            optimizer,
+            schedulers=[warmup_scheduler, main_scheduler],
+            milestones=[args.warmup_epochs],
+        )
+        print(f"LR Scheduler: {args.warmup_epochs}-epoch linear warmup -> {sched_desc}")
+    else:
+        scheduler = main_scheduler
+        print(f"LR Scheduler: {sched_desc}")
 
     # WandB logger
     # Only include kernel tag for models that use ConvLSTM
@@ -494,6 +523,8 @@ def main():
                         help='Temporal sampling mode')
 
     # Data configuration
+    parser.add_argument('--data-dir', type=str, default=None,
+                        help='Data directory containing sentinel/ and masks/ subdirs (overrides config defaults)')
     parser.add_argument('--batch-size', type=int, default=4,
                         help='Batch size')
     parser.add_argument('--accumulation-steps', type=int, default=1,
@@ -518,6 +549,8 @@ def main():
     parser.add_argument('--scheduler', type=str, default='linear',
                         choices=['linear', 'cosine'],
                         help='Learning rate scheduler type')
+    parser.add_argument('--warmup-epochs', type=int, default=0,
+                        help='Linear LR warmup epochs (0 to disable)')
 
     # Early stopping
     parser.add_argument('--early-stopping', action='store_true',

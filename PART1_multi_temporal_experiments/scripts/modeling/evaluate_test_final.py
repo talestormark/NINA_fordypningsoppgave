@@ -228,13 +228,17 @@ def load_model_from_checkpoint(checkpoint_path: Path, config: dict, device: torc
     return model
 
 
-def evaluate_condition(condition_name: str, device: torch.device, verbose: bool = True):
+def evaluate_condition(condition_name: str, device: torch.device, verbose: bool = True,
+                       experiments_dir: Path = None, sentinel2_dir: Path = None, mask_dir: Path = None):
     """
     Evaluate a single condition using CV ensemble on test set.
 
     Returns:
         dict: Complete evaluation results
     """
+    if experiments_dir is None:
+        experiments_dir = MT_EXPERIMENTS_DIR
+
     config = EXPERIMENTS[condition_name]
     exp_name = config['name']
     temporal_sampling = config['temporal_sampling']
@@ -249,7 +253,7 @@ def evaluate_condition(condition_name: str, device: torch.device, verbose: bool 
     all_fold_predictions = {}
 
     for fold in range(NUM_FOLDS):
-        exp_dir = MT_EXPERIMENTS_DIR / f"{exp_name}_fold{fold}"
+        exp_dir = experiments_dir / f"{exp_name}_fold{fold}"
 
         if not exp_dir.exists():
             raise FileNotFoundError(f"Experiment directory not found: {exp_dir}")
@@ -279,6 +283,8 @@ def evaluate_condition(condition_name: str, device: torch.device, verbose: bool 
             fold=fold,
             num_folds=NUM_FOLDS,
             seed=SEED,
+            sentinel2_dir=sentinel2_dir,
+            mask_dir=mask_dir,
         )
         test_loader = dataloaders['test']
 
@@ -431,6 +437,10 @@ def main():
                         help='Evaluate only the architecture variant conditions')
     parser.add_argument('--output-dir', type=str, default=None,
                         help='Output directory for results')
+    parser.add_argument('--data-dir', type=str, default=None,
+                        help='Data directory containing sentinel/ and masks/ subdirs (overrides config defaults)')
+    parser.add_argument('--experiments-dir', type=str, default=None,
+                        help='Base directory for experiment checkpoints (overrides MT_EXPERIMENTS_DIR)')
     args = parser.parse_args()
 
     if not args.condition and not args.all_conditions and not args.temporal_only and not args.architecture_variants:
@@ -462,10 +472,27 @@ def main():
     else:
         conditions = [args.condition]
 
+    # Resolve data directories
+    experiments_dir = Path(args.experiments_dir) if args.experiments_dir else None
+    sentinel2_dir = None
+    mask_dir = None
+    if args.data_dir:
+        data_dir = Path(args.data_dir)
+        sentinel2_dir = data_dir / "sentinel"
+        mask_dir = data_dir / "masks"
+        print(f"  Data dir: {args.data_dir}")
+    if experiments_dir:
+        print(f"  Experiments dir: {experiments_dir}")
+
     # Evaluate
     all_results = {}
     for condition in conditions:
-        results = evaluate_condition(condition, device)
+        results = evaluate_condition(
+            condition, device,
+            experiments_dir=experiments_dir,
+            sentinel2_dir=sentinel2_dir,
+            mask_dir=mask_dir,
+        )
         all_results[condition] = results
 
     # Summary comparison (if multiple conditions)
