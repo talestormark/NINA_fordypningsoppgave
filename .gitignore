@@ -1,5 +1,6 @@
 # Ignore large remote sensing data folders
-data/
+data_v1/
+data_v2/
 AlphaEarth/
 Land_take_masks/
 PlanetScope/
@@ -41,6 +42,7 @@ __pycache__/
 
 # Logs and temporary outputs
 logs/
+outputs_v1/
 outputs/
 runs/
 checkpoints/
@@ -52,7 +54,7 @@ scripts/classify_images_sam.py
 
 # Documentation - keep structure, ignore PDFs
 *.pdf
-!docs/papers/README.md
+docs_v1/papers/
 
 
 # LaTeX files (managed in Overleaf)
@@ -68,6 +70,7 @@ scripts/classify_images_sam.py
 
 # Markdown docs (experiment logs, notes, plans)
 *.md
+*.sty
 # Keep top-level project README if one exists
 !README.md
 
