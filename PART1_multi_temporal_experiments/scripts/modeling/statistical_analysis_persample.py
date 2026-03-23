@@ -46,62 +46,11 @@ from train import Metrics
 # Import multi-temporal modules
 from models_multitemporal import create_multitemporal_model
 from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import get_dataloaders
-from PART1_multi_temporal_experiments.config import MT_EXPERIMENTS_DIR
-
-
-# Experiment configurations
-EXPERIMENTS = {
-    'annual': {
-        'name': 'exp010_lstm7_no_es',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    'bi_temporal': {
-        'name': 'exp003_v3',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'bi_seasonal': {
-        'name': 'exp002_v3',
-        'temporal_sampling': 'quarterly',
-        'T': 14,
-    },
-    'early_fusion': {
-        'name': 'exp005_early_fusion',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'late_fusion': {
-        'name': 'exp006_late_fusion',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'late_fusion_pool': {
-        'name': 'exp007_late_fusion_pool',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    'conv3d_fusion': {
-        'name': 'exp008_conv3d_fusion',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    'lstm_lite': {
-        'name': 'exp009_lstm_lite',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'lstm7_no_es': {
-        'name': 'exp010_lstm7_no_es',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    'lstm7_lite': {
-        'name': 'exp011_lstm7_lite',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-}
+from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+    EXPERIMENTS_V2 as EXPERIMENTS,
+    V2_OUTPUTS_DIR, V2_SENTINEL_DIR, V2_MASK_DIR, V2_ANALYSIS_DIR,
+    V2_SPLITS_DIR, V2_CHANGE_LEVEL_PATH, COMPARISON_FAMILIES,
+)
 
 
 def compute_sample_iou(pred_logits: torch.Tensor, mask: torch.Tensor, threshold: float = 0.5) -> float:
@@ -166,12 +115,15 @@ def load_model_from_checkpoint(checkpoint_path: Path, config: dict, device: torc
     return model
 
 
-def get_out_of_fold_predictions(experiment_config: dict, num_folds: int, device: torch.device):
+def get_out_of_fold_predictions(experiment_config: dict, num_folds: int, device: torch.device,
+                                experiments_dir: Path = None, sentinel2_dir: Path = None,
+                                mask_dir: Path = None, splits_dir: Path = None,
+                                change_level_path: Path = None):
     """
     Get per-sample IoU from out-of-fold predictions.
 
     For each fold, load the model trained on that fold and evaluate on its
-    validation set (the held-out fold). This gives us n=45 per-sample IoU values.
+    validation set (the held-out fold).
 
     Args:
         experiment_config: Dict with 'name' and 'temporal_sampling'
@@ -179,15 +131,26 @@ def get_out_of_fold_predictions(experiment_config: dict, num_folds: int, device:
         device: Torch device
 
     Returns:
-        dict: {refid: iou} for all 45 samples
+        dict: {refid: iou} for all CV samples
     """
+    if experiments_dir is None:
+        experiments_dir = V2_OUTPUTS_DIR
+    if sentinel2_dir is None:
+        sentinel2_dir = V2_SENTINEL_DIR
+    if mask_dir is None:
+        mask_dir = V2_MASK_DIR
+    if splits_dir is None:
+        splits_dir = V2_SPLITS_DIR
+    if change_level_path is None:
+        change_level_path = V2_CHANGE_LEVEL_PATH
+
     exp_name = experiment_config['name']
     temporal_sampling = experiment_config['temporal_sampling']
 
     per_sample_iou = {}
 
     for fold in range(num_folds):
-        exp_dir = MT_EXPERIMENTS_DIR / f"{exp_name}_fold{fold}"
+        exp_dir = experiments_dir / f"{exp_name}_fold{fold}"
 
         if not exp_dir.exists():
             print(f"  WARNING: {exp_dir} not found, skipping fold {fold}")
@@ -216,6 +179,10 @@ def get_out_of_fold_predictions(experiment_config: dict, num_folds: int, device:
             fold=fold,
             num_folds=num_folds,
             seed=config.get('seed', 42),
+            sentinel2_dir=sentinel2_dir,
+            mask_dir=mask_dir,
+            splits_dir=splits_dir,
+            change_level_path=change_level_path,
         )
         val_loader = dataloaders['val']
 
@@ -408,6 +375,10 @@ def main():
     parser = argparse.ArgumentParser(description="Per-sample statistical analysis")
     parser.add_argument('--output-dir', type=str, default=None,
                         help='Output directory for results')
+    parser.add_argument('--experiments-dir', type=str, default=None,
+                        help='Base directory for experiment checkpoints')
+    parser.add_argument('--experiments', type=str, default=None,
+                        help='Comma-separated list of experiment keys (e.g., annual,bi_temporal,bi_seasonal)')
     parser.add_argument('--num-folds', type=int, default=5,
                         help='Number of CV folds')
     parser.add_argument('--n-permutations', type=int, default=10000,
@@ -424,19 +395,33 @@ def main():
     if torch.cuda.is_available():
         print(f"GPU: {torch.cuda.get_device_name(0)}")
 
+    # Resolve paths
+    experiments_dir = Path(args.experiments_dir) if args.experiments_dir else None
+
+    # Filter experiments if requested
+    if args.experiments:
+        exp_keys = [k.strip() for k in args.experiments.split(',')]
+        active_experiments = {k: v for k, v in EXPERIMENTS.items() if k in exp_keys}
+    else:
+        active_experiments = EXPERIMENTS
+
     print("\n" + "="*80)
     print("PER-SAMPLE STATISTICAL ANALYSIS")
     print("="*80)
-    print(f"\nCollecting out-of-fold predictions for n=45 samples per condition...")
+    print(f"\nExperiments: {list(active_experiments.keys())}")
+    print(f"Collecting out-of-fold predictions...")
 
     # Collect per-sample IoU for each condition
     condition_iou = {}
 
-    for condition_name, config in EXPERIMENTS.items():
+    for condition_name, config in active_experiments.items():
         print(f"\n--- {condition_name.upper()} (T={config['T']}) ---")
         print(f"  Experiment: {config['name']}")
 
-        iou_dict = get_out_of_fold_predictions(config, args.num_folds, device)
+        iou_dict = get_out_of_fold_predictions(
+            config, args.num_folds, device,
+            experiments_dir=experiments_dir,
+        )
         condition_iou[condition_name] = iou_dict
 
         print(f"  Samples collected: {len(iou_dict)}")
@@ -446,7 +431,8 @@ def main():
         print(f"  Median IoU: {np.median(iou_values)*100:.2f}%")
 
     # Verify all conditions have the same samples
-    refids = set(condition_iou['annual'].keys())
+    first_cond = next(iter(condition_iou))
+    refids = set(condition_iou[first_cond].keys())
     for condition in condition_iou:
         if set(condition_iou[condition].keys()) != refids:
             raise ValueError(f"Sample mismatch between conditions! {condition} has {len(condition_iou[condition])} vs {len(refids)}")
@@ -457,37 +443,22 @@ def main():
     # Create aligned arrays for paired analysis
     refid_list = sorted(refids)
 
-    annual_iou = np.array([condition_iou['annual'][r] for r in refid_list])
-    bi_temporal_iou = np.array([condition_iou['bi_temporal'][r] for r in refid_list])
-    bi_seasonal_iou = np.array([condition_iou['bi_seasonal'][r] for r in refid_list])
-    early_fusion_iou = np.array([condition_iou['early_fusion'][r] for r in refid_list])
-    late_fusion_iou = np.array([condition_iou['late_fusion'][r] for r in refid_list])
-    late_fusion_pool_iou = np.array([condition_iou['late_fusion_pool'][r] for r in refid_list])
-    conv3d_fusion_iou = np.array([condition_iou['conv3d_fusion'][r] for r in refid_list])
-    lstm_lite_iou = np.array([condition_iou['lstm_lite'][r] for r in refid_list])
-    lstm7_no_es_iou = np.array([condition_iou['lstm7_no_es'][r] for r in refid_list])
-    lstm7_lite_iou = np.array([condition_iou['lstm7_lite'][r] for r in refid_list])
+    # Build arrays dynamically from available conditions
+    cond_arrays = {}
+    for cond_name in active_experiments:
+        cond_arrays[cond_name] = np.array([condition_iou[cond_name][r] for r in refid_list])
 
-    # Define comparisons
-    comparisons = [
-        ('Annual vs Bi-temporal', annual_iou, bi_temporal_iou),
-        ('Annual vs Bi-seasonal', annual_iou, bi_seasonal_iou),
-        ('Annual vs Early-Fusion', annual_iou, early_fusion_iou),
-        ('Annual vs Late-Fusion', annual_iou, late_fusion_iou),
-        ('Bi-temporal vs Early-Fusion', bi_temporal_iou, early_fusion_iou),
-        ('Bi-temporal vs Late-Fusion', bi_temporal_iou, late_fusion_iou),
-        ('Late-Fusion vs Early-Fusion', late_fusion_iou, early_fusion_iou),
-        ('Annual (LSTM) vs Late-Fusion Pool', annual_iou, late_fusion_pool_iou),
-        ('Annual (LSTM) vs Conv3D Fusion', annual_iou, conv3d_fusion_iou),
-        ('Bi-temporal (LSTM) vs LSTM-lite', bi_temporal_iou, lstm_lite_iou),
-        ('LSTM-lite vs Early-Fusion', lstm_lite_iou, early_fusion_iou),
-        ('LSTM-lite vs Late-Fusion Concat', lstm_lite_iou, late_fusion_iou),
-        ('Annual LSTM (no ES) vs Pool-7', lstm7_no_es_iou, late_fusion_pool_iou),
-        ('Annual LSTM (no ES) vs Conv3D-7', lstm7_no_es_iou, conv3d_fusion_iou),
-        ('Annual LSTM (no ES) vs LSTM-7-lite', lstm7_no_es_iou, lstm7_lite_iou),
-        ('LSTM-7-lite vs Pool-7', lstm7_lite_iou, late_fusion_pool_iou),
-        ('LSTM-7-lite vs Conv3D-7', lstm7_lite_iou, conv3d_fusion_iou),
-    ]
+    # Build comparisons from COMPARISON_FAMILIES, filtering to available conditions
+    comparisons = []
+    family_indices = {}  # family_name -> list of comparison indices
+
+    for family_name, family_info in COMPARISON_FAMILIES.items():
+        family_indices[family_name] = []
+        for comp_name, cond1_key, cond2_key in family_info['comparisons']:
+            if cond1_key in cond_arrays and cond2_key in cond_arrays:
+                idx = len(comparisons)
+                comparisons.append((comp_name, cond_arrays[cond1_key], cond_arrays[cond2_key]))
+                family_indices[family_name].append(idx)
 
     print("\n" + "="*80)
     print("STATISTICAL COMPARISONS")
@@ -559,17 +530,13 @@ def main():
         raw_p_values.append(perm_pvalue)
 
     # Apply Holm-Bonferroni correction within hypothesis families
-    # Family 1 (RQ1): Temporal regime comparisons (indices 0, 1)
-    # Family 2 (RQ0 T=2): Bi-temporal baseline comparisons (indices 2, 3, 4, 5, 6, 9, 10, 11)
-    # Family 3 (RQ0 T=7): Extended baseline comparisons (indices 7, 8, 12, 13, 14, 15, 16)
-    families = {
-        'Temporal regime (RQ1)': [0, 1],
-        'Bi-temporal baselines (RQ0, T=2)': [2, 3, 4, 5, 6, 9, 10, 11],
-        'Extended baselines (RQ0, T=7)': [7, 8, 12, 13, 14, 15, 16],
-    }
-
     adjusted_p_values = [None] * len(raw_p_values)
-    for family_name, indices in families.items():
+    families = {}  # for printing
+
+    for family_name, indices in family_indices.items():
+        if not indices:
+            continue
+        families[family_name] = indices
         family_raw = [raw_p_values[i] for i in indices]
         family_adj = holm_bonferroni_correction(family_raw)
         for idx, adj_p in zip(indices, family_adj):
@@ -627,32 +594,28 @@ def main():
     print("\n* p < 0.05, ** p < 0.01, *** p < 0.001 (Holm-Bonferroni adjusted)")
 
     # Save detailed results
-    output_dir = Path(args.output_dir) if args.output_dir else (
-        MT_EXPERIMENTS_DIR.parent / "analysis"
-    )
+    output_dir = Path(args.output_dir) if args.output_dir else V2_ANALYSIS_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save per-sample IoU values
-    per_sample_data = {
-        'refids': refid_list,
-        'annual_iou': annual_iou.tolist(),
-        'bi_temporal_iou': bi_temporal_iou.tolist(),
-        'bi_seasonal_iou': bi_seasonal_iou.tolist(),
-        'early_fusion_iou': early_fusion_iou.tolist(),
-        'late_fusion_iou': late_fusion_iou.tolist(),
-        'late_fusion_pool_iou': late_fusion_pool_iou.tolist(),
-        'conv3d_fusion_iou': conv3d_fusion_iou.tolist(),
-        'lstm_lite_iou': lstm_lite_iou.tolist(),
-        'lstm7_no_es_iou': lstm7_no_es_iou.tolist(),
-        'lstm7_lite_iou': lstm7_lite_iou.tolist(),
-    }
+    # Save per-sample IoU values (dynamic keys)
+    per_sample_data = {'refids': refid_list}
+    for cond_name, arr in cond_arrays.items():
+        per_sample_data[f'{cond_name}_iou'] = arr.tolist()
 
     per_sample_file = output_dir / "per_sample_iou.json"
     with open(per_sample_file, 'w') as f:
         json.dump(per_sample_data, f, indent=2)
     print(f"\n✓ Per-sample IoU saved to: {per_sample_file}")
 
-    # Save statistical results
+    # Save statistical results (dynamic condition summaries)
+    condition_summaries = {}
+    for cond_name, arr in cond_arrays.items():
+        condition_summaries[cond_name] = {
+            'mean_iou': float(np.mean(arr)),
+            'std_iou': float(np.std(arr, ddof=1)),
+            'median_iou': float(np.median(arr)),
+        }
+
     stats_file = output_dir / "statistical_analysis_persample.json"
     with open(stats_file, 'w') as f:
         json.dump({
@@ -661,58 +624,7 @@ def main():
             'n_bootstrap': args.n_bootstrap,
             'seed': args.seed,
             'comparisons': results,
-            'condition_summaries': {
-                'annual': {
-                    'mean_iou': float(np.mean(annual_iou)),
-                    'std_iou': float(np.std(annual_iou, ddof=1)),
-                    'median_iou': float(np.median(annual_iou)),
-                },
-                'bi_temporal': {
-                    'mean_iou': float(np.mean(bi_temporal_iou)),
-                    'std_iou': float(np.std(bi_temporal_iou, ddof=1)),
-                    'median_iou': float(np.median(bi_temporal_iou)),
-                },
-                'bi_seasonal': {
-                    'mean_iou': float(np.mean(bi_seasonal_iou)),
-                    'std_iou': float(np.std(bi_seasonal_iou, ddof=1)),
-                    'median_iou': float(np.median(bi_seasonal_iou)),
-                },
-                'early_fusion': {
-                    'mean_iou': float(np.mean(early_fusion_iou)),
-                    'std_iou': float(np.std(early_fusion_iou, ddof=1)),
-                    'median_iou': float(np.median(early_fusion_iou)),
-                },
-                'late_fusion': {
-                    'mean_iou': float(np.mean(late_fusion_iou)),
-                    'std_iou': float(np.std(late_fusion_iou, ddof=1)),
-                    'median_iou': float(np.median(late_fusion_iou)),
-                },
-                'late_fusion_pool': {
-                    'mean_iou': float(np.mean(late_fusion_pool_iou)),
-                    'std_iou': float(np.std(late_fusion_pool_iou, ddof=1)),
-                    'median_iou': float(np.median(late_fusion_pool_iou)),
-                },
-                'conv3d_fusion': {
-                    'mean_iou': float(np.mean(conv3d_fusion_iou)),
-                    'std_iou': float(np.std(conv3d_fusion_iou, ddof=1)),
-                    'median_iou': float(np.median(conv3d_fusion_iou)),
-                },
-                'lstm_lite': {
-                    'mean_iou': float(np.mean(lstm_lite_iou)),
-                    'std_iou': float(np.std(lstm_lite_iou, ddof=1)),
-                    'median_iou': float(np.median(lstm_lite_iou)),
-                },
-                'lstm7_no_es': {
-                    'mean_iou': float(np.mean(lstm7_no_es_iou)),
-                    'std_iou': float(np.std(lstm7_no_es_iou, ddof=1)),
-                    'median_iou': float(np.median(lstm7_no_es_iou)),
-                },
-                'lstm7_lite': {
-                    'mean_iou': float(np.mean(lstm7_lite_iou)),
-                    'std_iou': float(np.std(lstm7_lite_iou, ddof=1)),
-                    'median_iou': float(np.median(lstm7_lite_iou)),
-                },
-            }
+            'condition_summaries': condition_summaries,
         }, f, indent=2)
     print(f"✓ Statistical results saved to: {stats_file}")
 

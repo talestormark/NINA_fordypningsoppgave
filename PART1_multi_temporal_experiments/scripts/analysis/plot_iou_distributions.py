@@ -7,6 +7,7 @@ Generate statistical distribution figures for temporal sampling comparison.
   Panel B (Inferential): Two delta violins for ΔIoU (paired differences)
 """
 
+import sys
 import json
 import numpy as np
 import pandas as pd
@@ -20,7 +21,13 @@ RNG = np.random.default_rng(seed=42)
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 MT_EXPERIMENTS_DIR = SCRIPT_DIR.parent.parent
-OUTPUT_DIR = MT_EXPERIMENTS_DIR / "outputs" / "analysis"
+sys.path.insert(0, str(MT_EXPERIMENTS_DIR.parent))
+
+from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+    V2_ANALYSIS_DIR, PLOT_COLORS,
+)
+
+OUTPUT_DIR = V2_ANALYSIS_DIR
 PER_SAMPLE_FILE = OUTPUT_DIR / "per_sample_iou.json"
 
 
@@ -29,10 +36,9 @@ def load_per_tile_data():
     with open(PER_SAMPLE_FILE, 'r') as f:
         data = json.load(f)
 
-    # Extract per-tile IoUs for each condition
-    # Use lstm7_no_es_iou for annual (unified 400-epoch protocol)
+    # Extract per-tile IoUs for each condition (v2 uses condition name directly)
     conditions = {
-        'annual': np.array(data['lstm7_no_es_iou']),
+        'annual': np.array(data['annual_iou']),
         'bi_temporal': np.array(data['bi_temporal_iou']),
         'bi_seasonal': np.array(data['bi_seasonal_iou']),
     }
@@ -66,11 +72,11 @@ def main():
     # Create figure with Panel B wider (inferential emphasis)
     fig, axes = plt.subplots(1, 2, figsize=(13, 5), gridspec_kw={'width_ratios': [1, 1.2]})
 
-    # Color palette
+    # Color palette (from experiment registry)
     colors = {
-        'bi_temporal': '#e74c3c',  # red
-        'annual': '#2ecc71',        # green
-        'bi_seasonal': '#3498db',   # blue
+        'bi_temporal': PLOT_COLORS['bi_temporal'],
+        'annual': PLOT_COLORS['annual'],
+        'bi_seasonal': PLOT_COLORS['bi_seasonal'],
     }
 
     # =========================================================================

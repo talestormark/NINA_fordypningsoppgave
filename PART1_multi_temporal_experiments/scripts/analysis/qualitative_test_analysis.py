@@ -38,31 +38,20 @@ sys.path.insert(0, str(parent_dir.parent))  # NINA_fordypningsoppgave/
 sys.path.insert(0, str(parent_dir / "scripts" / "modeling"))  # For models_multitemporal
 
 from PART1_multi_temporal_experiments.config import (
-    MT_EXPERIMENTS_DIR, DATA_DIR, YEARS, QUARTERS, SENTINEL2_BANDS
+    YEARS, QUARTERS, SENTINEL2_BANDS
 )
 from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import (
     MultiTemporalSentinel2Dataset, compute_normalization_stats
 )
+from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+    EXPERIMENTS_V2, TEMPORAL_CONDITIONS,
+    V2_OUTPUTS_DIR, V2_SENTINEL_DIR, V2_MASK_DIR, V2_ANALYSIS_DIR,
+    V2_SPLITS_DIR, V2_CHANGE_LEVEL_PATH,
+)
 from models_multitemporal import create_multitemporal_model
 
-# Experiment configurations (unified 400-epoch protocol)
-EXPERIMENTS = {
-    'annual': {
-        'name': 'exp010_lstm7_no_es',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    'bi_temporal': {
-        'name': 'exp003_v3',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'bi_seasonal': {
-        'name': 'exp002_v3',
-        'temporal_sampling': 'quarterly',
-        'T': 14,
-    },
-}
+# Use temporal conditions only for qualitative test analysis
+EXPERIMENTS = {k: EXPERIMENTS_V2[k] for k in TEMPORAL_CONDITIONS}
 
 # Colorblind-safe colors for TP/FP/FN overlay
 COLORS = {
@@ -82,7 +71,7 @@ class ModelCache:
         if key not in self._models:
             exp_config = EXPERIMENTS[condition]
             exp_name = exp_config['name']
-            exp_dir = MT_EXPERIMENTS_DIR / f"{exp_name}_fold{fold}"
+            exp_dir = V2_OUTPUTS_DIR / f"{exp_name}_fold{fold}"
             config_path = exp_dir / "config.json"
             checkpoint_path = exp_dir / "best_model.pth"
 
@@ -119,13 +108,13 @@ class NormStatsCache:
         key = (condition, fold)
         if key not in self._stats:
             # compute_normalization_stats returns a dict with 'mean' and 'std' keys
-            self._stats[key] = compute_normalization_stats(train_refids)
+            self._stats[key] = compute_normalization_stats(train_refids, sentinel2_dir=V2_SENTINEL_DIR)
         return self._stats[key]
 
 
 def load_raw_sentinel2(refid: str) -> np.ndarray:
     """Load raw Sentinel-2 data (no normalization)."""
-    s2_path = DATA_DIR / "Sentinel" / f"{refid}_RGBNIRRSWIRQ_Mosaic.tif"
+    s2_path = V2_SENTINEL_DIR / f"{refid}_RGBNIRRSWIRQ_Mosaic.tif"
     with rasterio.open(s2_path) as src:
         data = src.read()
     num_full_time_steps = len(YEARS) * len(QUARTERS)
@@ -137,7 +126,7 @@ def load_raw_sentinel2(refid: str) -> np.ndarray:
 def load_mask(refid: str, target_shape: tuple = None) -> np.ndarray:
     """Load and binarize mask."""
     from scipy.ndimage import zoom
-    mask_path = DATA_DIR / "Land_take_masks" / f"{refid}_mask.tif"
+    mask_path = V2_MASK_DIR / f"{refid}_mask.tif"
     with rasterio.open(mask_path) as src:
         mask = src.read(1)
     mask = (mask > 0).astype(np.float32)
@@ -515,13 +504,11 @@ def main():
     print(f"Device: {device}")
 
     # Load sample info
-    sample_info_path = parent_dir / "sample_change_levels.csv"
-    sample_info = pd.read_csv(sample_info_path)
+    sample_info = pd.read_csv(V2_CHANGE_LEVEL_PATH)
 
     # Load test/train split from files
-    splits_dir = parent_dir.parent / "outputs" / "splits"
-    test_refids = [line.strip() for line in open(splits_dir / "test_refids.txt")]
-    cv_refids = [line.strip() for line in open(splits_dir / "train_refids.txt")]
+    test_refids = [line.strip() for line in open(V2_SPLITS_DIR / "test_refids.txt")]
+    cv_refids = [line.strip() for line in open(V2_SPLITS_DIR / "train_refids.txt")]
 
     # Get change levels for CV samples
     refid_to_level = dict(zip(sample_info['refid'], sample_info['change_level']))
@@ -538,10 +525,10 @@ def main():
     norm_stats_cache = NormStatsCache()
 
     # Output directories
-    supplement_dir = MT_EXPERIMENTS_DIR / "outputs" / "analysis" / "test_qualitative"
+    supplement_dir = V2_ANALYSIS_DIR / "test_qualitative"
     supplement_dir.mkdir(parents=True, exist_ok=True)
 
-    main_dir = MT_EXPERIMENTS_DIR / "outputs" / "analysis"
+    main_dir = V2_ANALYSIS_DIR
 
     # Process each test tile and store data
     all_results = []

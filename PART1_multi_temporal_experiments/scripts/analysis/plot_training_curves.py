@@ -11,28 +11,37 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+import sys
+
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 MT_EXPERIMENTS_DIR = SCRIPT_DIR.parent.parent
-EXPERIMENTS_DIR = MT_EXPERIMENTS_DIR / "outputs" / "experiments"
-OUTPUT_DIR = MT_EXPERIMENTS_DIR / "outputs" / "analysis"
+sys.path.insert(0, str(MT_EXPERIMENTS_DIR.parent))
 
-# Experiment configurations
+from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+    EXPERIMENTS_V2, TEMPORAL_CONDITIONS,
+    V2_OUTPUTS_DIR, V2_ANALYSIS_DIR, DISPLAY_NAMES, PLOT_COLORS,
+)
+
+EXPERIMENTS_DIR = V2_OUTPUTS_DIR
+OUTPUT_DIR = V2_ANALYSIS_DIR
+
+# Experiment configurations for training curves
 EXPERIMENTS = {
     'annual': {
-        'name': 'Annual (T=7)',
-        'prefix': 'exp001_v2',
-        'color': '#2ecc71',
+        'name': DISPLAY_NAMES['annual'],
+        'prefix': EXPERIMENTS_V2['annual']['name'],
+        'color': PLOT_COLORS['annual'],
     },
     'bi_temporal': {
-        'name': 'Bi-temporal (T=2)',
-        'prefix': 'exp003_v2',
-        'color': '#e74c3c',
+        'name': DISPLAY_NAMES['bi_temporal'],
+        'prefix': EXPERIMENTS_V2['bi_temporal']['name'],
+        'color': PLOT_COLORS['bi_temporal'],
     },
     'bi_seasonal': {
-        'name': 'Bi-seasonal (T=14)',
-        'prefix': 'exp002_v2',
-        'color': '#3498db',
+        'name': DISPLAY_NAMES['bi_seasonal'],
+        'prefix': EXPERIMENTS_V2['bi_seasonal']['name'],
+        'color': PLOT_COLORS['bi_seasonal'],
     },
 }
 

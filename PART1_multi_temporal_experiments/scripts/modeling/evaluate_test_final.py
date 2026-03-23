@@ -51,73 +51,12 @@ sys.path.insert(0, str(parent_dir.parent / "scripts" / "modeling"))
 # Import multi-temporal modules
 from models_multitemporal import create_multitemporal_model
 from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import get_dataloaders
-from PART1_multi_temporal_experiments.config import MT_EXPERIMENTS_DIR
-
-
-# LOCKED CONFIGURATION - DO NOT MODIFY AFTER TEST EVALUATION BEGINS
-EXPERIMENTS = {
-    # Temporal sampling conditions (RQ1) - all use unified 400-epoch protocol
-    'annual': {
-        'name': 'exp010_lstm7_no_es',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    'bi_temporal': {
-        'name': 'exp003_v3',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'bi_seasonal': {
-        'name': 'exp002_v3',
-        'temporal_sampling': 'quarterly',
-        'T': 14,
-    },
-    # Architecture variants (RQ2)
-    'early_fusion': {
-        'name': 'exp005_early_fusion',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'late_fusion': {
-        'name': 'exp006_late_fusion',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'late_fusion_pool': {
-        'name': 'exp007_late_fusion_pool',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    'conv3d_fusion': {
-        'name': 'exp008_conv3d_fusion',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    'lstm_lite_t2': {
-        'name': 'exp009_lstm_lite',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'k1x1': {
-        'name': 'exp004_v2',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    # Extended experiments
-    'lstm7_lite': {
-        'name': 'exp011_lstm7_lite',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-}
-
-# Original three temporal conditions
-TEMPORAL_CONDITIONS = ['annual', 'bi_temporal', 'bi_seasonal']
-# Architecture variant conditions
-ARCHITECTURE_CONDITIONS = [
-    'early_fusion', 'late_fusion', 'late_fusion_pool', 'conv3d_fusion',
-    'lstm_lite_t2', 'k1x1', 'lstm7_lite',
-]
+from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+    EXPERIMENTS_V2 as EXPERIMENTS,
+    TEMPORAL_CONDITIONS, ARCHITECTURE_CONDITIONS,
+    V2_OUTPUTS_DIR, V2_SENTINEL_DIR, V2_MASK_DIR, V2_MASK_SUBDIR,
+    V2_ANALYSIS_DIR, V2_SPLITS_DIR, V2_CHANGE_LEVEL_PATH, DISPLAY_NAMES,
+)
 
 THRESHOLD = 0.5  # LOCKED - do not change
 NUM_FOLDS = 5
@@ -229,7 +168,9 @@ def load_model_from_checkpoint(checkpoint_path: Path, config: dict, device: torc
 
 
 def evaluate_condition(condition_name: str, device: torch.device, verbose: bool = True,
-                       experiments_dir: Path = None, sentinel2_dir: Path = None, mask_dir: Path = None):
+                       experiments_dir: Path = None, sentinel2_dir: Path = None,
+                       mask_dir: Path = None, splits_dir: Path = None,
+                       change_level_path: Path = None):
     """
     Evaluate a single condition using CV ensemble on test set.
 
@@ -237,7 +178,15 @@ def evaluate_condition(condition_name: str, device: torch.device, verbose: bool 
         dict: Complete evaluation results
     """
     if experiments_dir is None:
-        experiments_dir = MT_EXPERIMENTS_DIR
+        experiments_dir = V2_OUTPUTS_DIR
+    if sentinel2_dir is None:
+        sentinel2_dir = V2_SENTINEL_DIR
+    if mask_dir is None:
+        mask_dir = V2_MASK_DIR
+    if splits_dir is None:
+        splits_dir = V2_SPLITS_DIR
+    if change_level_path is None:
+        change_level_path = V2_CHANGE_LEVEL_PATH
 
     config = EXPERIMENTS[condition_name]
     exp_name = config['name']
@@ -285,6 +234,8 @@ def evaluate_condition(condition_name: str, device: torch.device, verbose: bool 
             seed=SEED,
             sentinel2_dir=sentinel2_dir,
             mask_dir=mask_dir,
+            splits_dir=splits_dir,
+            change_level_path=change_level_path,
         )
         test_loader = dataloaders['test']
 
@@ -438,13 +389,15 @@ def main():
     parser.add_argument('--output-dir', type=str, default=None,
                         help='Output directory for results')
     parser.add_argument('--data-dir', type=str, default=None,
-                        help='Data directory containing sentinel/ and masks/ subdirs (overrides config defaults)')
+                        help='Data directory containing Sentinel/ and mask subdirs (overrides v2 defaults)')
     parser.add_argument('--experiments-dir', type=str, default=None,
-                        help='Base directory for experiment checkpoints (overrides MT_EXPERIMENTS_DIR)')
+                        help='Base directory for experiment checkpoints (overrides V2_OUTPUTS_DIR)')
+    parser.add_argument('--experiments', type=str, default=None,
+                        help='Comma-separated list of experiment keys to evaluate (e.g., annual,bi_temporal)')
     args = parser.parse_args()
 
-    if not args.condition and not args.all_conditions and not args.temporal_only and not args.architecture_variants:
-        parser.error("Must specify --condition, --all-conditions, --temporal-only, or --architecture-variants")
+    if not args.condition and not args.all_conditions and not args.temporal_only and not args.architecture_variants and not args.experiments:
+        parser.error("Must specify --condition, --all-conditions, --temporal-only, --architecture-variants, or --experiments")
 
     # Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -469,17 +422,19 @@ def main():
         conditions = TEMPORAL_CONDITIONS
     elif args.architecture_variants:
         conditions = ARCHITECTURE_CONDITIONS
+    elif args.experiments:
+        conditions = [c.strip() for c in args.experiments.split(',')]
     else:
         conditions = [args.condition]
 
-    # Resolve data directories
+    # Resolve data directories (defaults from experiments_v2 registry)
     experiments_dir = Path(args.experiments_dir) if args.experiments_dir else None
     sentinel2_dir = None
     mask_dir = None
     if args.data_dir:
         data_dir = Path(args.data_dir)
-        sentinel2_dir = data_dir / "sentinel"
-        mask_dir = data_dir / "masks"
+        sentinel2_dir = data_dir / "Sentinel"
+        mask_dir = data_dir / V2_MASK_SUBDIR
         print(f"  Data dir: {args.data_dir}")
     if experiments_dir:
         print(f"  Experiments dir: {experiments_dir}")
@@ -492,6 +447,8 @@ def main():
             experiments_dir=experiments_dir,
             sentinel2_dir=sentinel2_dir,
             mask_dir=mask_dir,
+            splits_dir=V2_SPLITS_DIR,
+            change_level_path=V2_CHANGE_LEVEL_PATH,
         )
         all_results[condition] = results
 
@@ -509,9 +466,7 @@ def main():
             print(f"{cond:<15} {res['T']:<4} {pt['mean']*100:<12.2f} {ci_str:<20} {micro*100:<12.2f}")
 
     # Save results
-    output_dir = Path(args.output_dir) if args.output_dir else (
-        MT_EXPERIMENTS_DIR.parent / "analysis"
-    )
+    output_dir = Path(args.output_dir) if args.output_dir else V2_ANALYSIS_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
 
     results_file = output_dir / "test_set_evaluation.json"
@@ -523,21 +478,6 @@ def main():
     print("\n" + "="*70)
     print("LATEX TABLE")
     print("="*70)
-
-    # Display name mapping for LaTeX
-    DISPLAY_NAMES = {
-        'annual': 'Annual (LSTM-7)',
-        'bi_temporal': 'Bi-temporal (LSTM-2)',
-        'bi_seasonal': 'Bi-seasonal (LSTM-14)',
-        'early_fusion': 'Early-Fusion (T=2)',
-        'late_fusion': 'Late-Fusion (T=2)',
-        'late_fusion_pool': 'Pool-7 (T=7)',
-        'conv3d_fusion': 'Conv3D-7 (T=7)',
-        'lstm_lite_t2': 'LSTM-2-lite (T=2)',
-        'k1x1': 'LSTM-1x1 (T=7)',
-        'lstm7_no_es': 'LSTM-7 no ES (T=7)',
-        'lstm7_lite': 'LSTM-7-lite (T=7)',
-    }
 
     print("""
 \\begin{table}[h]

@@ -147,13 +147,15 @@ class MultiTemporalSentinel2Dataset(Dataset):
         temporal_sampling: str = "annual",
         transform: Optional[A.Compose] = None,
         output_format: str = "LSTM",
+        target_size: int = None,
     ):
         self.refids = refids
         self.sentinel2_dir = Path(sentinel2_dir or DATA_DIR / "Sentinel")
-        self.mask_dir = Path(mask_dir or DATA_DIR / "Land_take_masks")
+        self.mask_dir = Path(mask_dir or DATA_DIR / "Land_take_masks_coarse")
         self.temporal_sampling = temporal_sampling
         self.output_format = output_format
         self.transform = transform
+        self.target_size = target_size  # If set, reflect-pad tiles to this size
 
         # Load or use provided normalization statistics
         if normalization_stats is None:
@@ -368,14 +370,42 @@ class MultiTemporalSentinel2Dataset(Dataset):
         # Load mask: (H, W)
         mask = self._load_mask(refid, target_shape=(H, W))
 
+        # Pad to target_size if needed (reflect for image, zero for mask/valid_mask)
+        # This must happen before albumentations so RandomCrop works on padded tiles.
+        target_size = self.target_size
+        if target_size is not None and (H < target_size or W < target_size):
+            pad_h = max(0, target_size - H)
+            pad_w = max(0, target_size - W)
+            pad_top = pad_h // 2
+            pad_bot = pad_h - pad_top
+            pad_left = pad_w // 2
+            pad_right = pad_w - pad_left
+
+            # Reflect-pad image: (T, C, H, W) -> pad last two dims
+            s2_data = np.pad(s2_data,
+                             ((0, 0), (0, 0), (pad_top, pad_bot), (pad_left, pad_right)),
+                             mode='reflect')
+            # Zero-pad mask
+            mask = np.pad(mask, ((pad_top, pad_bot), (pad_left, pad_right)),
+                          mode='constant', constant_values=0)
+            # Valid-pixel mask: 1 for real, 0 for padded
+            H_padded, W_padded = H + pad_h, W + pad_w
+            valid_mask = np.zeros((H_padded, W_padded), dtype=np.float32)
+            valid_mask[pad_top:pad_top + H, pad_left:pad_left + W] = 1.0
+
+            T, C, H, W = s2_data.shape
+        else:
+            valid_mask = np.ones((H, W), dtype=np.float32)
+
         # Apply augmentation (consistent across time steps)
         if self.transform is not None:
             # Reshape to (H, W, T*C) for albumentations
             s2_reshaped = s2_data.transpose(2, 3, 0, 1).reshape(H, W, -1)  # (H, W, T*C)
 
-            augmented = self.transform(image=s2_reshaped, mask=mask)
+            augmented = self.transform(image=s2_reshaped, mask=mask, valid_mask=valid_mask)
             s2_augmented = augmented["image"]  # (H', W', T*C) after crop/resize
             mask = augmented["mask"]  # (H', W')
+            valid_mask = augmented["valid_mask"]  # (H', W') — 0 where padded
 
             # Get new dimensions after augmentation
             H_new, W_new = s2_augmented.shape[:2]
@@ -406,10 +436,12 @@ class MultiTemporalSentinel2Dataset(Dataset):
             raise ValueError(f"Unknown output_format: {self.output_format}")
 
         mask = torch.from_numpy(mask).float()
+        valid_mask = torch.from_numpy(valid_mask).float()
 
         return {
             "image": image,
             "mask": mask,
+            "valid_mask": valid_mask,
             "refid": refid,
         }
 
@@ -417,6 +449,9 @@ class MultiTemporalSentinel2Dataset(Dataset):
 def get_transform(is_train: bool = True, image_size: int = 512) -> A.Compose:
     """
     Get albumentations transform for multi-temporal data.
+
+    Padding to image_size is handled in __getitem__ (reflect for image,
+    zero for valid_mask). This transform only does crop + augmentation.
 
     Args:
         is_train: Whether this is for training (enables augmentation)
@@ -431,13 +466,11 @@ def get_transform(is_train: bool = True, image_size: int = 512) -> A.Compose:
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.5),
             A.RandomRotate90(p=0.5),
-            # Note: We don't use photometric augmentations for Sentinel-2
-            # as they would distort the normalized spectral values
-        ])
+        ], additional_targets={'valid_mask': 'mask'})
     else:
         return A.Compose([
             A.CenterCrop(image_size, image_size),
-        ])
+        ], additional_targets={'valid_mask': 'mask'})
 
 
 def get_dataloaders(
@@ -451,6 +484,8 @@ def get_dataloaders(
     seed: int = 42,
     sentinel2_dir: Path = None,
     mask_dir: Path = None,
+    splits_dir: Path = None,
+    change_level_path: Path = None,
 ) -> Dict[str, torch.utils.data.DataLoader]:
     """
     Create train/val/test dataloaders for multi-temporal Sentinel-2.
@@ -472,7 +507,9 @@ def get_dataloaders(
     """
     # Load splits
     base_dir = Path(__file__).resolve().parent.parent.parent.parent
-    splits_dir = base_dir / "outputs/splits"
+    if splits_dir is None:
+        splits_dir = base_dir / "outputs/splits"
+    splits_dir = Path(splits_dir)
 
     train_refids_orig = [line.strip() for line in open(splits_dir / "train_refids.txt")]
     val_refids_orig = [line.strip() for line in open(splits_dir / "val_refids.txt")]
@@ -486,7 +523,9 @@ def get_dataloaders(
         trainval_refids = train_refids_orig + val_refids_orig
 
         # Load change level information for stratification
-        change_level_path = base_dir / "PART1_multi_temporal_experiments" / "sample_change_levels.csv"
+        if change_level_path is None:
+            change_level_path = base_dir / "PART1_multi_temporal_experiments" / "outputs_v1" / "sample_change_levels.csv"
+        change_level_path = Path(change_level_path)
         change_level_df = pd.read_csv(change_level_path)
         refid_to_level = dict(zip(change_level_df['refid'], change_level_df['change_level']))
 
@@ -539,6 +578,7 @@ def get_dataloaders(
         normalization_stats=norm_stats,
         transform=get_transform(is_train=True, image_size=image_size),
         output_format=output_format,
+        target_size=image_size,
     )
 
     val_dataset = MultiTemporalSentinel2Dataset(
@@ -549,6 +589,7 @@ def get_dataloaders(
         normalization_stats=norm_stats,
         transform=get_transform(is_train=False, image_size=image_size),
         output_format=output_format,
+        target_size=image_size,
     )
 
     test_dataset = MultiTemporalSentinel2Dataset(
@@ -559,6 +600,7 @@ def get_dataloaders(
         normalization_stats=norm_stats,
         transform=get_transform(is_train=False, image_size=image_size),
         output_format=output_format,
+        target_size=image_size,
     )
 
     # Create dataloaders
