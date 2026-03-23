@@ -39,18 +39,19 @@ __pycache__/
 *.ckpt
 *.pb
 *.onnx
+*.sh
 
 # Logs and temporary outputs
 logs/
 outputs_v1/
+outputs_v2/
 outputs/
 runs/
 checkpoints/
 wandb/
 tensorboard/
 mlruns/
-sam_vit_b_01ec64.pth
-scripts/classify_images_sam.py
+experiments/annotation_efficiency/outputs/
 
 # Documentation - keep structure, ignore PDFs
 *.pdf
