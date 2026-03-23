@@ -32,30 +32,21 @@ sys.path.insert(0, str(mt_experiments_dir / "scripts" / "modeling"))
 from scripts.modeling.models_multitemporal import create_multitemporal_model
 from scripts.data_preparation.dataset_multitemporal import get_dataloaders
 
-# Define paths directly (avoid config import conflicts)
-MT_EXPERIMENTS_DIR = mt_experiments_dir / "outputs" / "experiments"
+# Import v2 experiment registry
+sys.path.insert(0, str(mt_experiments_dir.parent))
+from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+    EXPERIMENTS_V2, V2_OUTPUTS_DIR, V2_SENTINEL_DIR, V2_MASK_DIR,
+    V2_ANALYSIS_DIR, V2_SPLITS_DIR, V2_CHANGE_LEVEL_PATH, GEOJSON_PATH,
+)
 
-# Paths
-GEOJSON_PATH = mt_experiments_dir.parent / "land_take_bboxes_650m_v1.geojson"
-OUTPUT_DIR = MT_EXPERIMENTS_DIR / "outputs" / "analysis"
+MT_EXPERIMENTS_DIR = V2_OUTPUTS_DIR
+OUTPUT_DIR = V2_ANALYSIS_DIR
 
-# Experiments to analyze (unified protocol)
+# Experiments to analyze (temporal sampling conditions)
 EXPERIMENTS = {
-    'lstm7': {
-        'name': 'exp010_lstm7_no_es',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    'lstm2': {
-        'name': 'exp003_v3',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'lstm14': {
-        'name': 'exp002_v3',
-        'temporal_sampling': 'quarterly',
-        'T': 14,
-    },
+    'lstm7': EXPERIMENTS_V2['annual'],
+    'lstm2': EXPERIMENTS_V2['bi_temporal'],
+    'lstm14': EXPERIMENTS_V2['bi_seasonal'],
 }
 
 
@@ -164,6 +155,10 @@ def get_out_of_fold_predictions(experiment_config: dict, num_folds: int, device:
             fold=fold,
             num_folds=num_folds,
             seed=config.get('seed', 42),
+            sentinel2_dir=V2_SENTINEL_DIR,
+            mask_dir=V2_MASK_DIR,
+            splits_dir=V2_SPLITS_DIR,
+            change_level_path=V2_CHANGE_LEVEL_PATH,
         )
         val_loader = dataloaders['val']
 

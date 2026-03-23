@@ -2,36 +2,37 @@
 
 **Author**: tmstorma@stud.ntnu.no
 **Start Date**: January 2026
-**Status**: ✅ Experiments Complete (Analysis Phase)
-**Timeline**: 3-4 months
+**Status**: v2 re-run in progress (data_v2, EPSG:3035)
 
 ---
 
 ## Purpose
 
-This directory contains all experiments for the multi-temporal research phase, investigating temporal sampling strategies for land-take detection using Sentinel-2 imagery.
+This directory contains all experiments for the multi-temporal research phase, investigating temporal sampling strategies and fusion architectures for land-take detection using Sentinel-2 imagery.
 
 ## Research Questions
 
-- **RQ1**: What is the optimal temporal sampling density for land-take detection?
-- **RQ2**: Do alternative temporal fusion architectures match ConvLSTM recurrence?
+- **RQ1 — Temporal sampling**: How does the density of temporal observations affect land-take detection performance? We compare bi-temporal (T=2), annual (T=7), and bi-seasonal (T=14) input sequences while holding the architecture fixed.
+- **RQ2 — Architecture and fusion**: Does the ConvLSTM-based recurrent bottleneck provide advantages over simpler fusion strategies?
+  - **RQ2a**: Does explicit temporal modelling improve over simple channel stacking (T=2)?
+  - **RQ2b**: Does ConvLSTM recurrence improve over static feature concatenation (T=2)?
+  - **RQ2c**: Does recurrence help with longer sequences, or does simple pooling suffice (T=7)?
+  - **RQ2d**: Does learned non-recurrent temporal filtering (Conv3D) match recurrence (T=7)?
+  - **RQ2e**: Does reducing ConvLSTM capacity affect performance (T=2 and T=7)?
+  - **RQ2f**: Does spatial context inside the temporal module (kernel size) matter (T=7)?
 
-## Key Results
+---
 
-All models trained with unified protocol: 400 epochs, no early stopping, AdamW, cosine annealing LR.
+## Dataset Versions
 
-| Model | Code | T | Val IoU | Test IoU | vs LSTM-7 |
-|-------|------|---|---------|----------|-----------|
-| LSTM-7 | `exp010` | 7 | 58.38% ± 10.44% | 63.9% | — |
-| LSTM-14 | `exp002_v3` | 14 | 54.12% ± 10.96% | 61.8% | −4.26 pp |
-| LSTM-2 | `exp003_v3` | 2 | 54.65% ± 11.52% | 53.0% | −3.73 pp |
-| LSTM-1×1 | `exp004_v2` | 7 | 58.27% ± 10.76% | TBD | +0.39 pp (p=0.855) |
-
-### Conclusions
-
-1. **Annual sampling (T=7) is optimal**: Best validation and test performance
-2. **More temporal data hurts**: LSTM-14 (T=14) underperforms due to seasonal noise overfitting
-3. **Kernel size doesn't matter**: 1×1 matches 3×3 (p=0.855, n.s.)
+| Property | v1 (completed) | v2 (in progress) |
+|----------|----------------|------------------|
+| Tiles | 54 (53 usable) | 163 full-window |
+| CRS | EPSG:4326 (non-square ~6.6×10m) | EPSG:3035 (square 10m) |
+| Train+Val (CV) | 45 | 135 |
+| Test (held-out) | 8 | 28 |
+| Mask folder | `Land_take_masks/` | `Land_take_masks_coarse/` |
+| Splits | `outputs/splits/` | `preprocessing/outputs/splits/part1/` |
 
 ---
 
@@ -39,79 +40,128 @@ All models trained with unified protocol: 400 epochs, no early stopping, AdamW, 
 
 ```
 PART1_multi_temporal_experiments/
-├── README.md                          # This file
-├── EXPERIMENT_LOG.md                  # Running log of all experiments
-├── config.py                          # Configuration for multi-temporal experiments
+├── README.md                         # This file
+├── EXPERIMENT_LOG_v1.md              # v1 experiment log (completed)
+├── EXPERIMENT_LOG_v2.md              # v2 experiment log (in progress)
+├── config.py                         # Configuration for multi-temporal experiments
 │
 ├── scripts/
-│   ├── data_preparation/              # Data loading and preprocessing
-│   │   ├── 01_validate_sentinel2_temporal.py
-│   │   ├── 02_create_temporal_splits.py
-│   │   ├── 03_compute_normalization_stats.py
-│   │   └── dataset_multitemporal.py  # MultiTemporalSentinel2Dataset class
+│   ├── data_preparation/
+│   │   ├── dataset_multitemporal.py  # MultiTemporalSentinel2Dataset class
+│   │   ├── 01_validate_sentinel2_temporal.py  # v1 data validation
+│   │   └── 03_compute_normalization_stats.py  # v1 per-fold stats
 │   │
-│   ├── modeling/                      # Model architectures
-│   │   ├── lstm_unet.py               # LSTM-UNet (1D temporal)
-│   │   ├── unet_3d.py                 # 3D U-Net (2D spatiotemporal)
-│   │   ├── hybrid_models.py           # Hybrid architectures
-│   │   └── train_multitemporal.py     # Training script
+│   ├── modeling/
+│   │   ├── train_multitemporal.py    # Training script
+│   │   ├── models_multitemporal.py   # Model architectures
+│   │   ├── convlstm.py              # ConvLSTM module
+│   │   ├── evaluate_test_set.py      # Test set evaluation
+│   │   ├── evaluate_test_final.py    # Final test evaluation
+│   │   ├── boundary_f_score_analysis.py
+│   │   ├── statistical_analysis_persample.py
+│   │   ├── statistical_analysis_1dvs2d.py
+│   │   └── profile_memory.py
 │   │
-│   ├── evaluation/                    # Evaluation scripts
-│   │   ├── evaluate_multitemporal.py
-│   │   └── compare_architectures.py
+│   ├── analysis/
+│   │   ├── statistical_analysis.py
+│   │   ├── plot_training_curves.py
+│   │   ├── plot_iou_distributions.py
+│   │   ├── qualitative_cv_analysis.py
+│   │   ├── qualitative_test_analysis.py
+│   │   ├── stratified_by_change_type.py
+│   │   └── temporal_importance_analysis.py
 │   │
-│   ├── analysis/                      # Analysis and visualization
-│   │   ├── rq1_analysis.py            # Multi-temporal benefit analysis
-│   │   ├── rq2_analysis.py            # Sampling density analysis
-│   │   ├── rq3_analysis.py            # Architecture comparison
-│   │   └── visualize_temporal.py      # Temporal sequence visualization
-│   │
-│   └── slurm/                         # SLURM batch scripts
-│       ├── train_lstm_unet.slurm
-│       ├── train_3d_unet.slurm
-│       └── run_experiment_suite.slurm
+│   └── slurm/
+│       ├── v1/                       # All v1 SLURM scripts (archived)
+│       └── v2/
+│           └── train_all_experiments_v3.sh  # v2 launcher
 │
-├── outputs/
-│   ├── experiments/                   # Per-experiment results
-│   │   ├── exp010_lstm7_no_es_fold{0-4}/ # LSTM-7: Annual sampling (T=7)
-│   │   ├── exp002_v3_fold{0-4}/       # LSTM-14: Bi-seasonal sampling (T=14)
-│   │   ├── exp003_v3_fold{0-4}/       # LSTM-2: Bi-temporal sampling (T=2)
-│   │   └── exp004_v2_fold{0-4}/       # LSTM-1×1: 1×1 kernel ablation
-│   │
-│   ├── analysis/                      # Statistical analysis results
-│   │   ├── boundary_f_score_d2.json   # BF@2 analysis for all experiments
-│   │   └── 1d_vs_2d_analysis.json     # Kernel size comparison
-│   │
-│   ├── reports/                       # Analysis reports
-│   │   └── normalization_stats.csv
-│   │
-│   └── logs/                          # SLURM logs
+├── outputs_v1/                       # v1 results (archived)
+│   ├── experiments/                  # Per-experiment checkpoints & logs
+│   ├── analysis/                     # Statistical analysis results
+│   ├── figures/
+│   ├── reports/
+│   ├── logs/
+│   ├── sample_change_levels.csv      # v1 change levels (45 samples)
+│   └── final_data_rerun/             # Earlier EPSG:3035 attempt
 │
-├── docs/                              # Documentation and reports
-│   ├── 1Dvs2D.md                      # RQ2c: Kernel size ablation report
-│   ├── Boundary-F-Score.md            # Boundary quality analysis report
-│   ├── EXPERIMENT_002_REPORT.md       # Bi-seasonal experiment report
-│   ├── EXPERIMENT_003_REPORT.md       # Bi-temporal experiment report
-│   └── Experiments.tex                # LaTeX summary for thesis
+├── outputs_v2/                       # v2 results (in progress)
+│   └── logs/
 │
-└── notebooks/                         # Jupyter notebooks for exploration
-    ├── 01_explore_sentinel2_temporal.ipynb
-    ├── 02_test_data_loading.ipynb
-    └── 03_visualize_results.ipynb
+└── docs/
+    └── REPORT/
+        ├── part1_data_v1/            # Archived v1 report (.tex files)
+        └── part1_data_v2/            # v2 report (TODO placeholders)
 ```
 
 ---
 
-## Experiment Tracking
+## v2 Experiments
 
-All experiments are logged in `EXPERIMENT_LOG.md` with:
-- Experiment ID
-- Research question
-- Model architecture
-- Hyperparameters
-- Results (IoU, F1, etc.)
-- Training time
-- Notes/observations
+All models trained with unified protocol: 400 epochs, no early stopping, AdamW, cosine annealing LR, A100 80GB GPU.
+
+### Phase 1: RQ1 — Temporal Sampling
+
+| Exp | Model | T | Batch | RQ | Status |
+|-----|-------|---|-------|-----|--------|
+| exp001 | LSTM-7 | 7 (annual) | 4 | RQ1 | TODO |
+| exp002 | LSTM-14 | 14 (bi-seasonal) | 2×2 accum | RQ1 | TODO |
+| exp003 | LSTM-2 | 2 (bi-temporal) | 8 | RQ1 | TODO |
+
+### Phase 2: RQ2 — Architecture and Fusion
+
+| Exp | Model | T | Batch | RQ | Status |
+|-----|-------|---|-------|-----|--------|
+| exp004 | LSTM-1×1 | 7 (annual) | 4 | RQ2f | TODO |
+| exp005 | EarlyFusion | 2 (bi-temporal) | 8 | RQ2a | TODO |
+| exp006 | LateFusion | 2 (bi-temporal) | 8 | RQ2b | TODO |
+| exp007 | Pool-7 | 7 (annual) | 4 | RQ2c | TODO |
+| exp008 | Conv3D-7 | 7 (annual) | 4 | RQ2d | TODO |
+| exp009 | LSTM-2-lite | 2 (bi-temporal) | 8 | RQ2e | TODO |
+| exp010 | LSTM-7-lite | 7 (annual) | 4 | RQ2e | TODO |
+
+---
+
+## Quick Start (v2)
+
+```bash
+# 1. Activate environment
+module load Anaconda3/2024.02-1 && conda activate masterthesis
+
+# 2. Smoke test (interactive GPU node)
+python PART1_multi_temporal_experiments/scripts/modeling/train_multitemporal.py \
+    --model-name lstm_unet --temporal-sampling annual \
+    --encoder-name resnet50 --encoder-weights imagenet \
+    --lstm-hidden-dim 256 --lstm-num-layers 2 \
+    --batch-size 4 --image-size 64 --num-workers 2 \
+    --epochs 2 --lr 0.01 --optimizer adamw --scheduler cosine \
+    --loss focal --focal-alpha 0.25 --focal-gamma 2.0 \
+    --output-dir /tmp/smoke_test_v3 --seed 42 --fold 0 --num-folds 5 \
+    --data-dir data_v2 --mask-subdir Land_take_masks_coarse \
+    --splits-dir preprocessing/outputs/splits/part1 \
+    --change-level-path preprocessing/outputs/splits/part1/split_info.csv
+
+# 3. Launch Phase 1: RQ1 (15 jobs)
+for exp in exp001 exp002 exp003; do
+  for fold in 0 1 2 3 4; do
+    sbatch PART1_multi_temporal_experiments/scripts/slurm/v2/train_all_experiments_v3.sh $exp $fold
+  done
+done
+
+# 4. Launch Phase 2: RQ2 (35 jobs) — after Phase 1 analysis
+for exp in exp004 exp005 exp006 exp007 exp008 exp009 exp010; do
+  for fold in 0 1 2 3 4; do
+    sbatch PART1_multi_temporal_experiments/scripts/slurm/v2/train_all_experiments_v3.sh $exp $fold
+  done
+done
+
+# Or launch all 50 jobs at once
+for exp in exp001 exp002 exp003 exp004 exp005 exp006 exp007 exp008 exp009 exp010; do
+  for fold in 0 1 2 3 4; do
+    sbatch PART1_multi_temporal_experiments/scripts/slurm/v2/train_all_experiments_v3.sh $exp $fold
+  done
+done
+```
 
 ---
 
@@ -121,11 +171,11 @@ All experiments are logged in `EXPERIMENT_LOG.md` with:
 |--------|-------|
 | **Architecture** | LSTM-UNet (ResNet-50 encoder + ConvLSTM) |
 | **Parameters** | 54.4M (2-layer, h=256) |
-| **Data source** | Sentinel-2 (10m, 9 bands) |
+| **Data source** | Sentinel-2 (10m, 9 bands, EPSG:3035) |
 | **Time steps** | 2, 7, or 14 (2018-2024) |
 | **Input shape** | (B, T, C=9, H=64, W=64) |
 | **Bands** | Blue, Green, Red, R1, R2, R3, NIR, SWIR1, SWIR2 |
-| **Loss** | Focal Loss (α=0.25, γ=2.0) |
+| **Loss** | Focal Loss (alpha=0.25, gamma=2.0) |
 | **Optimizer** | AdamW (lr=0.01, weight_decay=5e-4) |
 | **LR Scheduler** | Cosine annealing (eta_min=0.0001) |
 | **Epochs** | 400 (no early stopping) |
@@ -133,94 +183,26 @@ All experiments are logged in `EXPERIMENT_LOG.md` with:
 
 ---
 
-## Experiment Status
+## Key Files
 
-### Phase 0: Setup ✅
-- [x] Create directory structure
-- [x] Validate Sentinel-2 temporal data quality
-- [x] Implement MultiTemporalSentinel2Dataset class
-- [x] Compute normalization statistics
-- [x] Test data loading pipeline
-- [x] Memory profiling on GPU
-
-### Phase 1: Temporal Sampling Experiments ✅
-- [x] exp010: LSTM-7 with annual sampling (T=7) — 5-fold CV complete (58.38% val, 63.9% test)
-- [x] exp002_v3: LSTM-14 with bi-seasonal sampling (T=14) — 5-fold CV complete (54.12% val, 61.8% test)
-- [x] exp003_v3: LSTM-2 with bi-temporal sampling (T=2) — 5-fold CV complete (54.65% val, 53.0% test)
-- [x] Per-sample statistical analysis (n=45 tiles, paired permutation tests)
-
-### Phase 2: Temporal Modeling Ablation ✅
-- [x] exp004_v2: LSTM-1×1 with 1×1 ConvLSTM kernel — 5-fold CV complete (58.27% val)
-- [x] Compare 3×3 vs 1×1 kernel (RQ2f)
-- [x] Statistical analysis (no significant difference, p=0.855)
-
-### Phase 3: Boundary Quality Analysis ✅
-- [x] Implement Boundary F-score (BF@2) metric
-- [x] Compute BF for all experiments
-- [x] Statistical comparison of boundary quality
-
-
+- **Experiment logs**: `EXPERIMENT_LOG_v1.md` (completed), `EXPERIMENT_LOG_v2.md` (active)
+- **Training script**: `scripts/modeling/train_multitemporal.py`
+- **Model definitions**: `scripts/modeling/models_multitemporal.py`
+- **Dataset loader**: `scripts/data_preparation/dataset_multitemporal.py`
+- **SLURM launcher**: `scripts/slurm/v2/train_all_experiments_v3.sh`
+- **v2 report**: `docs/REPORT/part1_data_v2/`
 
 ---
 
-## Quick Start
+## v1 Results (archived)
 
-```bash
-# 1. Activate environment
-conda activate masterthesis
+| Model | T | Val IoU | Test IoU |
+|-------|---|---------|----------|
+| LSTM-7 | 7 | 58.38% | 63.9% |
+| LSTM-14 | 14 | 54.12% | 61.8% |
+| LSTM-2 | 2 | 54.65% | 53.0% |
 
-# 2. Train model (5-fold CV via SLURM)
-sbatch scripts/slurm/train_exp010_lstm7_no_es.sh  # LSTM-7
-
-# 3. Run statistical analysis
-python scripts/modeling/statistical_analysis_persample.py
-
-# 4. Run 1D vs 2D analysis
-python scripts/modeling/statistical_analysis_1dvs2d.py
-
-# 5. Evaluate on held-out test set
-python scripts/modeling/evaluate_test_final.py --all-conditions
-```
-
-### Training a Single Fold
-
-```bash
-python scripts/modeling/train_multitemporal.py \
-    --model-name lstm_unet \
-    --temporal-sampling annual \
-    --fold 0 \
-    --epochs 400 \
-    --batch-size 4 \
-    --experiment-name exp010_lstm7_no_es \
-    --wandb
-```
-
-### ConvLSTM Kernel Ablation
-
-```bash
-python scripts/modeling/train_multitemporal.py \
-    --model-name lstm_unet \
-    --temporal-sampling annual \
-    --convlstm-kernel-size 1 \
-    --epochs 400 \
-    --experiment-name exp004_v2 \
-    --wandb
-```
-
----
-
-## Resource Requirements
-
-**Computational**:
-- GPU: Tesla V100-PCIE-32GB
-- RAM: 64GB
-- Storage: ~10GB for models, predictions, logs
-
-**Actual Training Times** (400 epochs, no early stopping):
-- LSTM-7 (annual, T=7): ~25-30 minutes per fold
-- LSTM-14 (bi-seasonal, T=14): ~40-50 minutes per fold
-- LSTM-2 (bi-temporal, T=2): ~15-20 minutes per fold
-- Full 5-fold CV: ~2-4 hours per experiment
+**v1 Conclusions**: Annual sampling (T=7) optimal; ConvLSTM recurrence provides no benefit over simple fusion; kernel size (1×1 vs 3×3) doesn't matter.
 
 ---
 
@@ -229,19 +211,3 @@ python scripts/modeling/train_multitemporal.py \
 **Student**: tmstorma@stud.ntnu.no
 **Data Provider**: zander.venter@nina.no
 **Institution**: NTNU / NINA
-
----
-
-## Key Files
-
-- **Experiment log**: `EXPERIMENT_LOG.md` — Full experiment tracking with results
-- **Statistical analysis**: `scripts/modeling/statistical_analysis_1dvs2d.py`
-- **Boundary F-score**: `scripts/modeling/boundary_f_score_analysis.py`
-- **Training script**: `scripts/modeling/train_multitemporal.py`
-- **Model definitions**: `scripts/modeling/models_multitemporal.py`
-
-## References
-
-- VHR Baseline results: `/outputs/evaluation/TEST_RESULTS_SUMMARY.md`
-- Data documentation: `/docs/DATASETS.md`
-- WandB: https://wandb.ai/NINA_Fordypningsoppgave/landtake-multitemporal

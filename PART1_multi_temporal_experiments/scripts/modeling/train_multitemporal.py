@@ -2,18 +2,19 @@
 """
 Training script for multi-temporal land-take detection models.
 
-Implements LSTM-UNet training on Sentinel-2 time series data.
+Supports multiple architectures (LSTM-UNet, EarlyFusion, LateFusion,
+Pool, Conv3D) on Sentinel-2 time series data.
 
-Reuses from baseline:
-- Focal Loss for class imbalance
-- SGD optimizer with momentum and linear LR decay
-- F1-score, IoU, precision, recall metrics
-- Checkpointing and WandB logging
+Loss functions:
+- Focal Loss (pixel-level hard-example mining)
+- Dice Loss (region-level overlap optimization)
+- Focal+Dice combined (default for v2)
+- BCE (baseline)
 
-New for multi-temporal:
-- MultiTemporalSentinel2Dataset with temporal sampling modes
-- LSTM-UNet architecture
-- (B, T, C, H, W) input format
+Optimizers: AdamW, SGD
+Schedulers: Cosine annealing, linear decay (with optional warmup)
+Metrics: IoU, F1, precision, recall
+Logging: WandB, JSON history, checkpointing
 """
 
 import sys
@@ -34,7 +35,7 @@ sys.path.insert(0, str(parent_dir.parent))
 
 # Import baseline utilities (reuse as-is)
 sys.path.insert(0, str(parent_dir.parent / "scripts" / "modeling"))
-from train import FocalLoss, Metrics
+from train import FocalLoss, DiceLoss, FocalDiceLoss, Metrics
 from logger import WandbLogger, create_run_name, create_tags
 
 # Import multi-temporal modules
@@ -72,6 +73,9 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, tota
         # Get data
         images = batch['image'].to(device)  # (B, T, C, H, W)
         masks = batch['mask'].to(device)    # (B, H, W)
+        valid_mask = batch.get('valid_mask')  # (B, H, W) or None
+        if valid_mask is not None:
+            valid_mask = valid_mask.to(device)
 
         # Forward pass - model handles temporal dimension
         outputs = model(images)  # (B, 1, H, W)
@@ -83,8 +87,16 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, tota
             print(f"  Output stats: min={outputs.min():.3f}, max={outputs.max():.3f}, mean={outputs.mean():.3f}")
             print(f"  NaN count: {torch.isnan(outputs).sum().item()}/{outputs.numel()}")
 
-        # Compute loss (scale by accumulation steps for proper averaging)
-        loss = criterion(outputs, masks) / accumulation_steps
+        # Mask out padded pixels before loss computation
+        # Set padded logits to -10 (sigmoid→~0) and padded targets to 0,
+        # so loss contribution from padded pixels is negligible.
+        if valid_mask is not None and valid_mask.float().mean() < 1.0:
+            vm = valid_mask.unsqueeze(1).bool()  # (B, 1, H, W)
+            outputs_masked = torch.where(vm, outputs, torch.tensor(-10.0, device=device))
+            masks_masked = masks * valid_mask
+            loss = criterion(outputs_masked, masks_masked) / accumulation_steps
+        else:
+            loss = criterion(outputs, masks) / accumulation_steps
 
         # Debug: Check for NaN in loss
         if torch.isnan(loss):
@@ -104,9 +116,16 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, tota
             optimizer.step()
             optimizer.zero_grad()
 
-        # Update metrics (use unscaled loss for logging)
+        # Update metrics on valid pixels only
         total_loss += loss.item() * accumulation_steps
-        metrics.update(outputs.detach(), masks)
+        if valid_mask is not None and valid_mask.float().mean() < 1.0:
+            vm = valid_mask.unsqueeze(1).bool()
+            metrics.update(
+                torch.where(vm, outputs.detach(), torch.tensor(-10.0, device=device)),
+                masks * valid_mask
+            )
+        else:
+            metrics.update(outputs.detach(), masks)
 
         # Update progress bar
         pbar.set_postfix({'loss': f'{loss.item() * accumulation_steps:.4f}'})
@@ -145,16 +164,32 @@ def validate(model, dataloader, criterion, device, epoch, total_epochs):
             # Get data
             images = batch['image'].to(device)  # (B, T, C, H, W)
             masks = batch['mask'].to(device)    # (B, H, W)
+            valid_mask = batch.get('valid_mask')  # (B, H, W) or None
+            if valid_mask is not None:
+                valid_mask = valid_mask.to(device)
 
             # Forward pass
             outputs = model(images)  # (B, 1, H, W)
 
-            # Compute loss
-            loss = criterion(outputs, masks)
+            # Mask out padded pixels before loss computation
+            if valid_mask is not None and valid_mask.float().mean() < 1.0:
+                vm = valid_mask.unsqueeze(1).bool()
+                outputs_masked = torch.where(vm, outputs, torch.tensor(-10.0, device=device))
+                masks_masked = masks * valid_mask
+                loss = criterion(outputs_masked, masks_masked)
+            else:
+                loss = criterion(outputs, masks)
 
-            # Update metrics
+            # Update metrics on valid pixels only
             total_loss += loss.item()
-            metrics.update(outputs, masks)
+            if valid_mask is not None and valid_mask.float().mean() < 1.0:
+                vm = valid_mask.unsqueeze(1).bool()
+                metrics.update(
+                    torch.where(vm, outputs, torch.tensor(-10.0, device=device)),
+                    masks * valid_mask
+                )
+            else:
+                metrics.update(outputs, masks)
 
             # Update progress bar
             pbar.set_postfix({'loss': f'{loss.item():.4f}'})
@@ -224,9 +259,10 @@ def train(args):
     mask_dir = None
     if args.data_dir:
         data_dir = Path(args.data_dir)
-        sentinel2_dir = data_dir / "sentinel"
-        mask_dir = data_dir / "masks"
+        sentinel2_dir = data_dir / "Sentinel"
+        mask_dir = data_dir / args.mask_subdir
         print(f"  Data dir: {args.data_dir}")
+        print(f"  Mask subdir: {args.mask_subdir}")
 
     dataloaders = get_dataloaders(
         temporal_sampling=args.temporal_sampling,
@@ -239,6 +275,8 @@ def train(args):
         seed=args.seed,
         sentinel2_dir=sentinel2_dir,
         mask_dir=mask_dir,
+        splits_dir=args.splits_dir,
+        change_level_path=args.change_level_path,
     )
 
     train_loader = dataloaders['train']
@@ -251,6 +289,16 @@ def train(args):
     if args.loss == 'focal':
         criterion = FocalLoss(alpha=args.focal_alpha, gamma=args.focal_gamma)
         print(f"\nLoss: Focal Loss (alpha={args.focal_alpha}, gamma={args.focal_gamma})")
+    elif args.loss == 'focal_dice':
+        criterion = FocalDiceLoss(
+            focal_alpha=args.focal_alpha, focal_gamma=args.focal_gamma,
+            lambda_focal=args.lambda_focal, lambda_dice=args.lambda_dice,
+        )
+        print(f"\nLoss: Focal+Dice (alpha={args.focal_alpha}, gamma={args.focal_gamma}, "
+              f"lambda_focal={args.lambda_focal}, lambda_dice={args.lambda_dice})")
+    elif args.loss == 'dice':
+        criterion = DiceLoss()
+        print("\nLoss: Dice Loss")
     elif args.loss == 'bce':
         criterion = nn.BCEWithLogitsLoss()
         print("\nLoss: Binary Cross Entropy")
@@ -525,6 +573,12 @@ def main():
     # Data configuration
     parser.add_argument('--data-dir', type=str, default=None,
                         help='Data directory containing sentinel/ and masks/ subdirs (overrides config defaults)')
+    parser.add_argument('--mask-subdir', type=str, default='masks',
+                        help='Subdirectory name for masks under data-dir')
+    parser.add_argument('--splits-dir', type=str, default=None,
+                        help='Override path to splits directory')
+    parser.add_argument('--change-level-path', type=str, default=None,
+                        help='Override path to change level CSV')
     parser.add_argument('--batch-size', type=int, default=4,
                         help='Batch size')
     parser.add_argument('--accumulation-steps', type=int, default=1,
@@ -562,12 +616,16 @@ def main():
 
     # Loss configuration
     parser.add_argument('--loss', type=str, default='focal',
-                        choices=['focal', 'bce'],
+                        choices=['focal', 'focal_dice', 'dice', 'bce'],
                         help='Loss function')
-    parser.add_argument('--focal-alpha', type=float, default=0.25,
-                        help='Focal loss alpha parameter')
+    parser.add_argument('--focal-alpha', type=float, default=0.75,
+                        help='Focal loss alpha (positive class weight)')
     parser.add_argument('--focal-gamma', type=float, default=2.0,
                         help='Focal loss gamma parameter')
+    parser.add_argument('--lambda-focal', type=float, default=1.0,
+                        help='Weight for focal term in focal_dice loss')
+    parser.add_argument('--lambda-dice', type=float, default=1.0,
+                        help='Weight for dice term in focal_dice loss')
 
     # Output and logging
     parser.add_argument('--output-dir', type=str,

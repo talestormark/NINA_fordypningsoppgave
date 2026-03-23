@@ -43,31 +43,20 @@ sys.path.insert(0, str(parent_dir.parent))  # NINA_fordypningsoppgave/
 sys.path.insert(0, str(parent_dir / "scripts" / "modeling"))  # For models_multitemporal
 
 from PART1_multi_temporal_experiments.config import (
-    MT_EXPERIMENTS_DIR, DATA_DIR, YEARS, QUARTERS, SENTINEL2_BANDS
+    YEARS, QUARTERS, SENTINEL2_BANDS
 )
 from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import (
     MultiTemporalSentinel2Dataset, compute_normalization_stats
 )
+from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+    EXPERIMENTS_V2, TEMPORAL_CONDITIONS,
+    V2_OUTPUTS_DIR, V2_SENTINEL_DIR, V2_MASK_DIR, V2_ANALYSIS_DIR,
+    V2_SPLITS_DIR, V2_CHANGE_LEVEL_PATH,
+)
 from models_multitemporal import create_multitemporal_model
 
-# Experiment configurations (unified 400-epoch protocol)
-EXPERIMENTS = {
-    'annual': {
-        'name': 'exp010_lstm7_no_es',
-        'temporal_sampling': 'annual',
-        'T': 7,
-    },
-    'bi_temporal': {
-        'name': 'exp003_v3',
-        'temporal_sampling': 'bi_temporal',
-        'T': 2,
-    },
-    'bi_seasonal': {
-        'name': 'exp002_v3',
-        'temporal_sampling': 'quarterly',
-        'T': 14,
-    },
-}
+# Use temporal conditions only for qualitative CV analysis
+EXPERIMENTS = {k: EXPERIMENTS_V2[k] for k in TEMPORAL_CONDITIONS}
 
 # Colorblind-safe colors for TP/FP/FN overlay
 COLORS = {
@@ -93,7 +82,7 @@ class ModelCache:
         if key not in self._models:
             exp_config = EXPERIMENTS[condition]
             exp_name = exp_config['name']
-            exp_dir = MT_EXPERIMENTS_DIR / f"{exp_name}_fold{fold}"
+            exp_dir = V2_OUTPUTS_DIR / f"{exp_name}_fold{fold}"
             config_path = exp_dir / "config.json"
             checkpoint_path = exp_dir / "best_model.pth"
 
@@ -138,7 +127,7 @@ class NormStatsCache:
         """Get norm stats from cache or compute them."""
         if fold not in self._stats:
             print(f"  Computing normalization stats for fold {fold}...")
-            self._stats[fold] = compute_normalization_stats(train_refids)
+            self._stats[fold] = compute_normalization_stats(train_refids, sentinel2_dir=V2_SENTINEL_DIR)
         return self._stats[fold]
 
 
@@ -165,24 +154,19 @@ def get_fold_assignments(refids: list, num_folds: int = 5, seed: int = 42):
     """
     from sklearn.model_selection import StratifiedKFold
 
-    base_dir = Path(__file__).resolve().parent.parent.parent.parent
-
     # Load split files in the SAME order as get_dataloaders()
-    splits_dir = base_dir / "outputs" / "splits"
-    train_refids_orig = [line.strip() for line in open(splits_dir / "train_refids.txt")]
-    val_refids_orig = [line.strip() for line in open(splits_dir / "val_refids.txt")]
+    train_refids_orig = [line.strip() for line in open(V2_SPLITS_DIR / "train_refids.txt")]
+    val_refids_orig = [line.strip() for line in open(V2_SPLITS_DIR / "val_refids.txt")]
     trainval_refids = train_refids_orig + val_refids_orig
 
     # Load change levels (same file as dataset_multitemporal.py uses)
-    change_level_path = base_dir / "PART1_multi_temporal_experiments" / "sample_change_levels.csv"
-
-    if not change_level_path.exists():
+    if not V2_CHANGE_LEVEL_PATH.exists():
         raise FileNotFoundError(
-            f"Change level file not found: {change_level_path}\n"
+            f"Change level file not found: {V2_CHANGE_LEVEL_PATH}\n"
             "This file is required for stratified fold assignment."
         )
 
-    change_level_df = pd.read_csv(change_level_path)
+    change_level_df = pd.read_csv(V2_CHANGE_LEVEL_PATH)
     refid_to_level = dict(zip(change_level_df['refid'], change_level_df['change_level']))
 
     # Get change levels in trainval order (matching get_dataloaders)
@@ -214,7 +198,7 @@ def load_raw_sentinel2(refid: str, sentinel2_dir: Path = None) -> np.ndarray:
         Array of shape (14, 9, H, W) - all 14 quarterly time steps
     """
     if sentinel2_dir is None:
-        sentinel2_dir = DATA_DIR / "Sentinel"
+        sentinel2_dir = V2_SENTINEL_DIR
 
     s2_path = sentinel2_dir / f"{refid}_RGBNIRRSWIRQ_Mosaic.tif"
 
@@ -243,7 +227,7 @@ def load_mask(refid: str, target_shape: tuple = None) -> np.ndarray:
     """
     from scipy.ndimage import zoom
 
-    mask_path = DATA_DIR / "Land_take_masks" / f"{refid}_mask.tif"
+    mask_path = V2_MASK_DIR / f"{refid}_mask.tif"
 
     with rasterio.open(mask_path) as src:
         mask = src.read(1)
@@ -760,7 +744,7 @@ def run_qualitative_analysis(
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     if output_dir is None:
-        output_dir = MT_EXPERIMENTS_DIR.parent / "analysis" / "cv_qualitative"
+        output_dir = V2_ANALYSIS_DIR / "cv_qualitative"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'='*60}")
@@ -768,7 +752,7 @@ def run_qualitative_analysis(
     print(f"{'='*60}")
 
     # Load per-sample IoU from statistical analysis
-    iou_file = MT_EXPERIMENTS_DIR.parent / "analysis" / "per_sample_iou.json"
+    iou_file = V2_ANALYSIS_DIR / "per_sample_iou.json"
     if not iou_file.exists():
         raise FileNotFoundError(f"Per-sample IoU file not found: {iou_file}\n"
                                 "Run statistical_analysis_persample.py first.")

@@ -45,7 +45,10 @@ sys.path.insert(0, str(parent_dir.parent))  # NINA_fordypningsoppgave/
 sys.path.insert(0, str(parent_dir / "scripts" / "modeling"))
 
 from PART1_multi_temporal_experiments.config import (
-    MT_EXPERIMENTS_DIR, DATA_DIR, YEARS, QUARTERS, SENTINEL2_BANDS
+    YEARS, QUARTERS, SENTINEL2_BANDS
+)
+from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+    V2_OUTPUTS_DIR, V2_ANALYSIS_DIR,
 )
 from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import (
     MultiTemporalSentinel2Dataset, compute_normalization_stats
@@ -472,7 +475,7 @@ def load_training_histories() -> dict:
         histories[condition] = {}
 
         for fold in range(5):
-            history_path = MT_EXPERIMENTS_DIR / f"{exp_name}_fold{fold}" / "history.json"
+            history_path = V2_OUTPUTS_DIR / f"{exp_name}_fold{fold}" / "history.json"
             if not history_path.exists():
                 print(f"  Warning: Missing {history_path}")
                 continue
@@ -659,11 +662,11 @@ def main():
     if args.output_dir:
         output_dir = Path(args.output_dir)
     else:
-        output_dir = MT_EXPERIMENTS_DIR.parent / "analysis" / "temporal_contribution"
+        output_dir = V2_ANALYSIS_DIR / "temporal_contribution"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load per-sample IoU data (provides the list of OOF refids)
-    iou_file = MT_EXPERIMENTS_DIR.parent / "analysis" / "per_sample_iou.json"
+    iou_file = V2_ANALYSIS_DIR / "per_sample_iou.json"
     if not iou_file.exists():
         raise FileNotFoundError(
             f"Per-sample IoU file not found: {iou_file}\n"

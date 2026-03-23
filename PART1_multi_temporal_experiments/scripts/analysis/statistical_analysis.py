@@ -48,9 +48,9 @@ def load_results_from_history(exp_dir: Path) -> dict:
     results = {}
 
     experiments = [
-        ("exp001_v2", "annual"),
-        ("exp002_v2", "biseasonal"),
-        ("exp003_v2", "bitemporal"),
+        ("exp001", "annual"),
+        ("exp002", "biseasonal"),
+        ("exp003", "bitemporal"),
     ]
 
     for exp_name, condition in experiments:
@@ -201,7 +201,7 @@ def generate_latex_table(all_results: list) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Statistical analysis for temporal ablation")
     parser.add_argument('--results-dir', type=str,
-                        default='/cluster/home/tmstorma/NINA_fordypningsoppgave/PART1_multi_temporal_experiments/outputs/experiments',
+                        default='/cluster/home/tmstorma/NINA_fordypningsoppgave/PART1_multi_temporal_experiments/outputs_v2',
                         help='Directory containing experiment results')
     parser.add_argument('--manual', action='store_true',
                         help='Use manually specified results instead of loading from files')

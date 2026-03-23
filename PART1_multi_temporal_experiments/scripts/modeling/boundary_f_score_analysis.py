@@ -34,78 +34,11 @@ sys.path.insert(0, str(parent_dir.parent))
 # Import multi-temporal modules
 from models_multitemporal import create_multitemporal_model
 from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import get_dataloaders
-from PART1_multi_temporal_experiments.config import MT_EXPERIMENTS_DIR
-
-
-# Experiment configurations
-EXPERIMENTS = {
-    'annual': {
-        'name': 'exp010_lstm7_no_es',
-        'temporal_sampling': 'annual',
-        'convlstm_kernel_size': 3,
-        'description': 'Annual (T=7)',
-    },
-    'bi_seasonal': {
-        'name': 'exp002_v3',
-        'temporal_sampling': 'quarterly',
-        'convlstm_kernel_size': 3,
-        'description': 'Bi-seasonal (T=14)',
-    },
-    'bi_temporal': {
-        'name': 'exp003_v3',
-        'temporal_sampling': 'bi_temporal',
-        'convlstm_kernel_size': 3,
-        'description': 'Bi-temporal (T=2)',
-    },
-    'k1x1': {
-        'name': 'exp004_v2',
-        'temporal_sampling': 'annual',
-        'convlstm_kernel_size': 1,
-        'description': '1×1 kernel (T=7)',
-    },
-    'early_fusion': {
-        'name': 'exp005_early_fusion',
-        'temporal_sampling': 'bi_temporal',
-        'model_name': 'early_fusion_unet',
-        'description': 'Early-Fusion U-Net (T=2, stacked)',
-    },
-    'late_fusion': {
-        'name': 'exp006_late_fusion',
-        'temporal_sampling': 'bi_temporal',
-        'model_name': 'late_fusion_concat',
-        'description': 'Late-Fusion Concat (T=2)',
-    },
-    'late_fusion_pool': {
-        'name': 'exp007_late_fusion_pool',
-        'temporal_sampling': 'annual',
-        'model_name': 'late_fusion_pool',
-        'description': 'Late-Fusion Pool (T=7)',
-    },
-    'conv3d_fusion': {
-        'name': 'exp008_conv3d_fusion',
-        'temporal_sampling': 'annual',
-        'model_name': 'conv3d_fusion',
-        'description': '3D Conv Fusion (T=7)',
-    },
-    'lstm_lite': {
-        'name': 'exp009_lstm_lite',
-        'temporal_sampling': 'bi_temporal',
-        'convlstm_kernel_size': 3,
-        'description': 'ConvLSTM-lite (T=2, 1-layer, h=32)',
-    },
-    'lstm7_no_es': {
-        'name': 'exp010_lstm7_no_es',
-        'temporal_sampling': 'annual',
-        'convlstm_kernel_size': 3,
-        'description': 'LSTM-7 no ES (T=7, full 400 epochs)',
-    },
-    'lstm7_lite': {
-        'name': 'exp011_lstm7_lite',
-        'temporal_sampling': 'annual',
-        'convlstm_kernel_size': 3,
-        'description': 'LSTM-7-lite (T=7, 1-layer, h=32)',
-    },
-}
+from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+    EXPERIMENTS_V2 as EXPERIMENTS,
+    V2_OUTPUTS_DIR, V2_SENTINEL_DIR, V2_MASK_DIR, V2_ANALYSIS_DIR,
+    V2_SPLITS_DIR, V2_CHANGE_LEVEL_PATH,
+)
 
 
 def extract_boundary(mask: np.ndarray) -> np.ndarray:
@@ -269,18 +202,22 @@ def get_predictions_and_metrics(
     num_folds: int,
     device: torch.device,
     threshold: float = 0.5,
-    tolerance: int = 2
+    tolerance: int = 2,
+    experiments_dir: Path = None,
 ):
     """
     Get per-sample IoU and BF from out-of-fold predictions.
     """
+    if experiments_dir is None:
+        experiments_dir = V2_OUTPUTS_DIR
+
     exp_name = experiment_config['name']
     temporal_sampling = experiment_config['temporal_sampling']
 
     per_sample_metrics = {}
 
     for fold in range(num_folds):
-        exp_dir = MT_EXPERIMENTS_DIR / f"{exp_name}_fold{fold}"
+        exp_dir = experiments_dir / f"{exp_name}_fold{fold}"
 
         if not exp_dir.exists():
             print(f"  WARNING: {exp_dir} not found, skipping fold {fold}")
@@ -309,6 +246,10 @@ def get_predictions_and_metrics(
             fold=fold,
             num_folds=num_folds,
             seed=config.get('seed', 42),
+            sentinel2_dir=V2_SENTINEL_DIR,
+            mask_dir=V2_MASK_DIR,
+            splits_dir=V2_SPLITS_DIR,
+            change_level_path=V2_CHANGE_LEVEL_PATH,
         )
         val_loader = dataloaders['val']
 
@@ -464,6 +405,10 @@ def main():
     parser.add_argument('--num-folds', type=int, default=5)
     parser.add_argument('--n-permutations', type=int, default=10000)
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--experiments-dir', type=str, default=None,
+                        help='Base directory for experiment checkpoints')
+    parser.add_argument('--experiments', type=str, default=None,
+                        help='Comma-separated list of experiment keys')
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -473,15 +418,26 @@ def main():
     print(f"BOUNDARY F-SCORE ANALYSIS (tolerance d={args.tolerance} pixels = {args.tolerance*10}m)")
     print("="*80)
 
+    # Resolve paths
+    experiments_dir = Path(args.experiments_dir) if args.experiments_dir else None
+
+    # Filter experiments if requested
+    if args.experiments:
+        exp_keys = [k.strip() for k in args.experiments.split(',')]
+        active_experiments = {k: v for k, v in EXPERIMENTS.items() if k in exp_keys}
+    else:
+        active_experiments = EXPERIMENTS
+
     # Collect metrics for all experiments
     all_metrics = {}
 
-    for exp_key, exp_config in EXPERIMENTS.items():
+    for exp_key, exp_config in active_experiments.items():
         print(f"\n--- {exp_config['description']} ({exp_config['name']}) ---")
 
         metrics = get_predictions_and_metrics(
             exp_config, args.num_folds, device,
-            threshold=args.threshold, tolerance=args.tolerance
+            threshold=args.threshold, tolerance=args.tolerance,
+            experiments_dir=experiments_dir,
         )
         all_metrics[exp_key] = metrics
 
@@ -817,7 +773,7 @@ def main():
     print("\\end{table}")
 
     # Save results
-    output_dir = MT_EXPERIMENTS_DIR.parent / "analysis"
+    output_dir = V2_ANALYSIS_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
 
     results = {
