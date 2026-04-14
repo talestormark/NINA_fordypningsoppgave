@@ -34,7 +34,7 @@ PART2_DIR = REPO_ROOT / "PART2_spectral_spatial_resolution_experiments"
 
 # 1. Baseline utilities — needs scripts/modeling on sys.path for internal imports
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "modeling"))
-from train import FocalLoss, Metrics
+from train import FocalLoss, DiceLoss, FocalDiceLoss, Metrics
 from logger import WandbLogger
 
 # 2. Part I models — needs Part I modeling dir on sys.path (for convlstm import)
@@ -200,6 +200,13 @@ def train(args):
     if args.loss == 'focal':
         criterion = FocalLoss(alpha=args.focal_alpha, gamma=args.focal_gamma)
         print(f"\nLoss: Focal Loss (alpha={args.focal_alpha}, gamma={args.focal_gamma})")
+    elif args.loss == 'focal_dice':
+        criterion = FocalDiceLoss(
+            focal_alpha=args.focal_alpha, focal_gamma=args.focal_gamma,
+            lambda_focal=args.lambda_focal, lambda_dice=args.lambda_dice,
+        )
+        print(f"\nLoss: Focal+Dice (alpha={args.focal_alpha}, gamma={args.focal_gamma}, "
+              f"lambda_focal={args.lambda_focal}, lambda_dice={args.lambda_dice})")
     elif args.loss == 'bce':
         criterion = nn.BCEWithLogitsLoss()
         print("\nLoss: Binary Cross Entropy")
@@ -455,10 +462,12 @@ def main():
                         help='Linear LR warmup epochs (0 to disable, default: 5)')
 
     # Loss configuration
-    parser.add_argument('--loss', type=str, default='focal',
-                        choices=['focal', 'bce'])
-    parser.add_argument('--focal-alpha', type=float, default=0.25)
+    parser.add_argument('--loss', type=str, default='focal_dice',
+                        choices=['focal', 'focal_dice', 'bce'])
+    parser.add_argument('--focal-alpha', type=float, default=0.75)
     parser.add_argument('--focal-gamma', type=float, default=2.0)
+    parser.add_argument('--lambda-focal', type=float, default=1.0)
+    parser.add_argument('--lambda-dice', type=float, default=1.0)
 
     # Output and logging
     parser.add_argument('--output-dir', type=str, default=None,
@@ -478,7 +487,15 @@ def main():
                         help='Fold index (0 to num-folds-1)')
     parser.add_argument('--num-folds', type=int, default=5)
 
+    # Data overrides
+    parser.add_argument('--splits-csv', type=str, default=None,
+                        help='Override splits CSV path (default: use dataset.py SPLITS_CSV)')
+
     args = parser.parse_args()
+
+    # Override splits CSV if specified
+    if args.splits_csv:
+        _p2_dataset.SPLITS_CSV = Path(args.splits_csv)
 
     # Auto-generate output directory if not specified
     if args.output_dir is None:
