@@ -28,9 +28,10 @@ from tqdm import tqdm
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_DEFAULT_DATA_DIR = "epsg3035_10m_v1"
+_DEFAULT_DATA_DIR = "epsg3035_10m_v2"
 PROCESSED_DIR = REPO_ROOT / "data" / "processed" / os.environ.get("P2_DATA_DIR", _DEFAULT_DATA_DIR)
-SPLITS_CSV = REPO_ROOT / "outputs" / "splits" / "split_info.csv"
+SPLITS_CSV = REPO_ROOT / "preprocessing" / "outputs" / "splits" / "unified" / "split_info.csv"
+ANNOTATION_META_CSV = REPO_ROOT / "data_v2" / "annotations_metadata_final.csv"
 STATS_JSON = PROCESSED_DIR / "normalisation_stats.json"
 
 MODALITY_DIRS = {
@@ -87,7 +88,7 @@ EXPERIMENT_CONFIGS = {
         "compute_indices": False,
         "indices_only": False,
         "temporal_diff": False,
-        "expected_shape": (7, 3, CROP_SIZE, CROP_SIZE),
+        "expected_shape": (2, 3, CROP_SIZE, CROP_SIZE),
     },
     "A2_s2_rgbnir": {
         "modalities": [
@@ -96,9 +97,18 @@ EXPERIMENT_CONFIGS = {
         "compute_indices": False,
         "indices_only": False,
         "temporal_diff": False,
-        "expected_shape": (7, 4, CROP_SIZE, CROP_SIZE),
+        "expected_shape": (2, 4, CROP_SIZE, CROP_SIZE),
     },
     "A3_s2_9band": {
+        "modalities": [
+            {"source": "sentinel", "band_indices": list(range(9)), "stats_key": "sentinel"},
+        ],
+        "compute_indices": False,
+        "indices_only": False,
+        "temporal_diff": False,
+        "expected_shape": (2, 9, CROP_SIZE, CROP_SIZE),
+    },
+    "A3_s2_9band_t7": {
         "modalities": [
             {"source": "sentinel", "band_indices": list(range(9)), "stats_key": "sentinel"},
         ],
@@ -114,7 +124,7 @@ EXPERIMENT_CONFIGS = {
         "compute_indices": True,
         "indices_only": False,
         "temporal_diff": False,
-        "expected_shape": (7, 13, CROP_SIZE, CROP_SIZE),
+        "expected_shape": (2, 13, CROP_SIZE, CROP_SIZE),
     },
     "A5_indices_only": {
         "modalities": [
@@ -123,7 +133,7 @@ EXPERIMENT_CONFIGS = {
         "compute_indices": True,
         "indices_only": True,
         "temporal_diff": False,
-        "expected_shape": (7, 4, CROP_SIZE, CROP_SIZE),
+        "expected_shape": (2, 4, CROP_SIZE, CROP_SIZE),
     },
     "A6_temporal_diff": {
         "modalities": [
@@ -141,7 +151,7 @@ EXPERIMENT_CONFIGS = {
         "compute_indices": False,
         "indices_only": False,
         "temporal_diff": False,
-        "expected_shape": (7, 3, CROP_SIZE, CROP_SIZE),
+        "expected_shape": (2, 3, CROP_SIZE, CROP_SIZE),
     },
     "C3_s2_ps_fusion": {
         "modalities": [
@@ -151,7 +161,7 @@ EXPERIMENT_CONFIGS = {
         "compute_indices": False,
         "indices_only": False,
         "temporal_diff": False,
-        "expected_shape": (7, 6, CROP_SIZE, CROP_SIZE),
+        "expected_shape": (2, 6, CROP_SIZE, CROP_SIZE),
     },
     "D2_alphaearth": {
         "modalities": [
@@ -160,7 +170,25 @@ EXPERIMENT_CONFIGS = {
         "compute_indices": False,
         "indices_only": False,
         "temporal_diff": False,
-        "expected_shape": (7, 64, CROP_SIZE, CROP_SIZE),
+        "expected_shape": (2, 64, CROP_SIZE, CROP_SIZE),
+    },
+    "E4_ae_unet_sparse": {  # Same data config as D2, different training (masked loss)
+        "modalities": [
+            {"source": "alphaearth", "band_indices": list(range(64)), "stats_key": "alphaearth"},
+        ],
+        "compute_indices": False,
+        "indices_only": False,
+        "temporal_diff": False,
+        "expected_shape": (2, 64, CROP_SIZE, CROP_SIZE),
+    },
+    "E4_A3_s2_9band_sparse": {  # Same data config as A3, different training (masked loss)
+        "modalities": [
+            {"source": "sentinel", "band_indices": list(range(9)), "stats_key": "sentinel"},
+        ],
+        "compute_indices": False,
+        "indices_only": False,
+        "temporal_diff": False,
+        "expected_shape": (2, 9, CROP_SIZE, CROP_SIZE),
     },
     "D3_s2_ae_fusion": {
         "modalities": [
@@ -170,7 +198,7 @@ EXPERIMENT_CONFIGS = {
         "compute_indices": False,
         "indices_only": False,
         "temporal_diff": False,
-        "expected_shape": (7, 73, CROP_SIZE, CROP_SIZE),
+        "expected_shape": (2, 73, CROP_SIZE, CROP_SIZE),
     },
 }
 
@@ -187,10 +215,14 @@ def load_normalisation_stats(path: Path = None) -> dict:
     stats = {}
     for key in ("sentinel", "planetscope", "alphaearth"):
         if key in raw:
-            stats[key] = {
+            entry = {
                 "mean": np.array(raw[key]["mean"], dtype=np.float64),
                 "std": np.array(raw[key]["std"], dtype=np.float64),
             }
+            if "p2" in raw[key] and "p98" in raw[key]:
+                entry["p2"] = np.array(raw[key]["p2"], dtype=np.float64)
+                entry["p98"] = np.array(raw[key]["p98"], dtype=np.float64)
+            stats[key] = entry
     # indices and temporal_diff are optional (added by compute_normalisation_stats)
     for key in ("indices", "temporal_diff"):
         if key in raw:
@@ -451,7 +483,16 @@ class MultiModalDataset(Dataset):
                     s = s[bands]
                 # For temporal_diff, stats are per S2 band (9 bands)
                 # band_indices from the sentinel spec selects which ones
-                self.norm_slices.append({"mean": m, "std": s})
+                ns_entry = {"mean": m, "std": s}
+                if "p2" in norm_stats[key] and "p98" in norm_stats[key]:
+                    p2 = norm_stats[key]["p2"]
+                    p98 = norm_stats[key]["p98"]
+                    if source in ("sentinel", "planetscope", "alphaearth"):
+                        p2 = p2[bands]
+                        p98 = p98[bands]
+                    ns_entry["p2"] = p2
+                    ns_entry["p98"] = p98
+                self.norm_slices.append(ns_entry)
             else:
                 raise ValueError(f"Missing normalisation stats for key '{key}'")
 
@@ -461,6 +502,18 @@ class MultiModalDataset(Dataset):
                 self.indices_norm = norm_stats["indices"]
             else:
                 raise ValueError("Missing normalisation stats for 'indices'")
+
+        # Per-tile annotation year indices for T=2 selection
+        # Maps refid → (start_year_idx, end_year_idx) clamped to S2 range [0, 6]
+        self.tile_year_indices = {}
+        if ANNOTATION_META_CSV.exists():
+            meta = pd.read_csv(ANNOTATION_META_CSV)
+            for _, row in meta.iterrows():
+                if pd.isna(row["startYear"]) or pd.isna(row["endYear"]):
+                    continue
+                start_idx = max(int(row["startYear"]), 2018) - 2018
+                end_idx = min(int(row["endYear"]), 2024) - 2018
+                self.tile_year_indices[row["REFID"]] = (start_idx, end_idx)
 
         self._verify_files()
 
@@ -541,6 +594,15 @@ class MultiModalDataset(Dataset):
                 components.append(indices)
 
         # ------------------------------------------------------------------
+        # 2b. Per-tile temporal selection (T=2: start + end year)
+        # Only applies when expected T=2 (not for T=7 or temporal_diff)
+        # ------------------------------------------------------------------
+        T_expected = cfg["expected_shape"][0]
+        if T_expected == 2 and not cfg["temporal_diff"] and refid in self.tile_year_indices:
+            start_idx, end_idx = self.tile_year_indices[refid]
+            components = [c[[start_idx, end_idx]] for c in components]
+
+        # ------------------------------------------------------------------
         # 3. Temporal difference
         # ------------------------------------------------------------------
         if cfg["temporal_diff"]:
@@ -611,11 +673,15 @@ class MultiModalDataset(Dataset):
 
         for ns in norm_specs:
             n_ch = len(ns["mean"])
+            slc = image[:, ch_offset:ch_offset + n_ch]
+            # Clip to [p2, p98] before z-scoring (matches how stats were computed)
+            if "p2" in ns and "p98" in ns:
+                p2 = ns["p2"].reshape(1, n_ch, 1, 1).astype(np.float32)
+                p98 = ns["p98"].reshape(1, n_ch, 1, 1).astype(np.float32)
+                np.clip(slc, p2, p98, out=slc)
             mean = ns["mean"].reshape(1, n_ch, 1, 1).astype(np.float32)
             std = ns["std"].reshape(1, n_ch, 1, 1).astype(np.float32)
-            image[:, ch_offset:ch_offset + n_ch] = (
-                (image[:, ch_offset:ch_offset + n_ch] - mean) / std
-            )
+            image[:, ch_offset:ch_offset + n_ch] = (slc - mean) / std
             ch_offset += n_ch
 
         # ------------------------------------------------------------------
