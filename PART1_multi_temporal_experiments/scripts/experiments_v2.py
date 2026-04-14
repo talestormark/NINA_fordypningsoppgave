@@ -27,7 +27,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 _MT_DIR = _SCRIPT_DIR.parent  # PART1_multi_temporal_experiments/
 _BASE_DIR = _MT_DIR.parent    # NINA_fordypningsoppgave/
 
-V2_OUTPUTS_DIR = _MT_DIR / "outputs_v2"
+V2_OUTPUTS_DIR = _MT_DIR / "outputs_v3"
 V2_ANALYSIS_DIR = V2_OUTPUTS_DIR / "analysis"
 
 V2_DATA_DIR = _BASE_DIR / "data_v2"
@@ -35,7 +35,7 @@ V2_SENTINEL_DIR = V2_DATA_DIR / "Sentinel"
 V2_MASK_SUBDIR = "Land_take_masks_coarse"
 V2_MASK_DIR = V2_DATA_DIR / V2_MASK_SUBDIR
 
-V2_SPLITS_DIR = _BASE_DIR / "preprocessing" / "outputs" / "splits" / "part1"
+V2_SPLITS_DIR = _BASE_DIR / "preprocessing" / "outputs" / "splits" / "unified_fullwindow"
 V2_CHANGE_LEVEL_PATH = V2_SPLITS_DIR / "split_info.csv"
 
 # GeoJSON metadata (for stratified analysis)
