@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --account=share-ie-idi
-#SBATCH --job-name=p2_train
 #SBATCH --time=0-03:00:00
 #SBATCH --partition=GPUQ
 #SBATCH --gres=gpu:1
@@ -14,15 +13,15 @@
 # ============================================================================
 #
 # Usage:
-#   sbatch train_experiment.sh EXPERIMENT FOLD [EXTRA_ARGS...]
-#
-# Examples:
-#   sbatch train_experiment.sh A3_s2_9band 0
-#   sbatch train_experiment.sh D3_s2_ae_fusion 2
-#   sbatch train_experiment.sh A3_s2_9band 0 --model-name lstm_unet --lstm-hidden-dim 256 --lstm-num-layers 2
+#   sbatch --job-name=p2_A3_f0 train_experiment.sh A3_s2_9band 0
 #
 # Submit all 5 folds:
-#   for fold in 0 1 2 3 4; do sbatch train_experiment.sh A3_s2_9band $fold; done
+#   for fold in 0 1 2 3 4; do
+#     sbatch --job-name=p2_A3_f${fold} train_experiment.sh A3_s2_9band $fold
+#   done
+#
+# Helper to submit all folds with auto-naming:
+#   EXP=A1_s2_rgb; for f in 0 1 2 3 4; do sbatch --job-name=p2_${EXP}_f${f} train_experiment.sh $EXP $f; done
 #
 # ============================================================================
 
@@ -61,22 +60,23 @@ echo ""
 # Run training
 python PART2_spectral_spatial_resolution_experiments/scripts/modeling/train.py \
     --experiment $EXPERIMENT \
-    --model-name late_fusion_pool \
+    --model-name early_fusion_unet \
     --encoder-name resnet50 \
     --encoder-weights imagenet \
-    --skip-aggregation max \
-    --batch-size 4 \
+    --batch-size 8 \
     --image-size 64 \
     --num-workers 4 \
     --epochs 400 \
     --lr 0.01 \
     --optimizer adamw \
     --scheduler cosine \
-    --warmup-epochs 5 \
+    --warmup-epochs 0 \
     --weight-decay 5e-4 \
-    --loss focal \
-    --focal-alpha 0.25 \
+    --loss focal_dice \
+    --focal-alpha 0.75 \
     --focal-gamma 2.0 \
+    --lambda-focal 1.0 \
+    --lambda-dice 1.0 \
     --output-dir $OUTPUT_DIR \
     --seed 42 \
     --fold $FOLD \
