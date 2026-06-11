@@ -28,13 +28,12 @@ import warnings
 # Add paths for imports
 script_dir = Path(__file__).resolve().parent
 parent_dir = script_dir.parent.parent
-sys.path.insert(0, str(parent_dir))
-sys.path.insert(0, str(parent_dir.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # this experiment's scripts/ dir
 
 # Import multi-temporal modules
-from models_multitemporal import create_multitemporal_model
-from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import get_dataloaders
-from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+from landtake.models.multitemporal import create_multitemporal_model
+from landtake.data.multitemporal import get_dataloaders
+from experiments_v2 import (
     EXPERIMENTS_V2 as EXPERIMENTS,
     V2_OUTPUTS_DIR, V2_SENTINEL_DIR, V2_MASK_DIR, V2_ANALYSIS_DIR,
     V2_SPLITS_DIR, V2_CHANGE_LEVEL_PATH,

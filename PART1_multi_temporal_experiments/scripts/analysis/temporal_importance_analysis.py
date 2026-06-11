@@ -40,23 +40,21 @@ import warnings
 # Add paths for imports
 script_dir = Path(__file__).resolve().parent
 parent_dir = script_dir.parent.parent  # PART1_multi_temporal_experiments/
-sys.path.insert(0, str(parent_dir))
-sys.path.insert(0, str(parent_dir.parent))  # NINA_fordypningsoppgave/
-sys.path.insert(0, str(parent_dir / "scripts" / "modeling"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # this experiment's scripts/ dir
 
-from PART1_multi_temporal_experiments.config import (
+from landtake.config import (
     YEARS, QUARTERS, SENTINEL2_BANDS
 )
-from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+from experiments_v2 import (
     V2_OUTPUTS_DIR, V2_ANALYSIS_DIR,
 )
-from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import (
+from landtake.data.multitemporal import (
     MultiTemporalSentinel2Dataset, compute_normalization_stats
 )
-from models_multitemporal import create_multitemporal_model
+from landtake.models.multitemporal import create_multitemporal_model
 
 # Reuse fold logic and caching from qualitative analysis
-from PART1_multi_temporal_experiments.scripts.analysis.qualitative_cv_analysis import (
+from analysis.qualitative_cv_analysis import (
     get_fold_assignments, ModelCache, NormStatsCache, load_raw_sentinel2,
     load_mask, EXPERIMENTS,
 )

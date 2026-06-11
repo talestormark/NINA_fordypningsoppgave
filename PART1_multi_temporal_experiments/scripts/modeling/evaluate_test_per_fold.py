@@ -38,17 +38,14 @@ script_dir = Path(__file__).resolve().parent
 PART1_DIR = script_dir.parent.parent
 REPO_ROOT = PART1_DIR.parent
 
-sys.path.insert(0, str(REPO_ROOT))
-sys.path.insert(0, str(PART1_DIR))
-sys.path.insert(0, str(REPO_ROOT / "scripts" / "modeling"))
 
-from train import Metrics  # noqa: E402
-from models_multitemporal import create_multitemporal_model  # noqa: E402
-from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import (  # noqa: E402
+from landtake.metrics import Metrics  # noqa: E402
+from landtake.models.multitemporal import create_multitemporal_model  # noqa: E402
+from landtake.data.multitemporal import (  # noqa: E402
     get_dataloaders,
 )
 
-sys.path.insert(0, str(PART1_DIR / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # this experiment's scripts/ dir
 from experiments_v2 import (  # noqa: E402
     V2_OUTPUTS_DIR,
     V2_SENTINEL_DIR,

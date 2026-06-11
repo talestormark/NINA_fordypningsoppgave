@@ -16,9 +16,9 @@ import sys
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 MT_EXPERIMENTS_DIR = SCRIPT_DIR.parent.parent
-sys.path.insert(0, str(MT_EXPERIMENTS_DIR.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # this experiment's scripts/ dir
 
-from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+from experiments_v2 import (
     EXPERIMENTS_V2, TEMPORAL_CONDITIONS,
     V2_OUTPUTS_DIR, V2_ANALYSIS_DIR, DISPLAY_NAMES, PLOT_COLORS,
 )

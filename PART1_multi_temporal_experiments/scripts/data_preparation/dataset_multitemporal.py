@@ -22,10 +22,8 @@ import sys
 
 # Add parent directories to path
 parent_dir = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(parent_dir))
-sys.path.insert(0, str(parent_dir.parent))
 
-from PART1_multi_temporal_experiments.config import (
+from landtake.config import (
     DATA_DIR,
     SENTINEL2_BANDS,
     YEARS,

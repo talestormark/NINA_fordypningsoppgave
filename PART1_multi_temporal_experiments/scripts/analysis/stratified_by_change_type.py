@@ -26,15 +26,13 @@ from collections import defaultdict
 # Add paths for imports
 script_dir = Path(__file__).resolve().parent
 mt_experiments_dir = script_dir.parent.parent
-sys.path.insert(0, str(mt_experiments_dir))
-sys.path.insert(0, str(mt_experiments_dir / "scripts" / "modeling"))
 
-from scripts.modeling.models_multitemporal import create_multitemporal_model
-from scripts.data_preparation.dataset_multitemporal import get_dataloaders
+from landtake.models.multitemporal import create_multitemporal_model
+from landtake.data.multitemporal import get_dataloaders
 
 # Import v2 experiment registry
-sys.path.insert(0, str(mt_experiments_dir.parent))
-from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # this experiment's scripts/ dir
+from experiments_v2 import (
     EXPERIMENTS_V2, V2_OUTPUTS_DIR, V2_SENTINEL_DIR, V2_MASK_DIR,
     V2_ANALYSIS_DIR, V2_SPLITS_DIR, V2_CHANGE_LEVEL_PATH, GEOJSON_PATH,
 )

@@ -18,8 +18,6 @@ import pandas as pd
 
 # Add paths
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "PART1_multi_temporal_experiments" / "scripts" / "modeling"))
 
 # Paths
 DATA_DIR = ROOT / "data_v2"
@@ -154,7 +152,7 @@ def test_tile_shapes():
 def test_dataset_loading():
     print("\n[6] Dataset and DataLoader (2 epochs, fold 0)")
     import torch
-    from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import (
+    from landtake.data.multitemporal import (
         get_dataloaders,
     )
 
@@ -222,7 +220,7 @@ def test_dataset_loading():
 
 def test_all_temporal_modes():
     print("\n[7] All temporal sampling modes load correctly")
-    from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import (
+    from landtake.data.multitemporal import (
         get_dataloaders,
     )
 

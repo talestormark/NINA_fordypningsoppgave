@@ -27,12 +27,10 @@ warnings.filterwarnings('ignore', category=rasterio.errors.NotGeoreferencedWarni
 
 # Add parent directories to path
 repo_dir = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(repo_dir))
-sys.path.insert(0, str(repo_dir / "PART1_multi_temporal_experiments"))
 
 try:
     from config import DATA_DIR, REFID_LIST_FILE
-    from PART1_multi_temporal_experiments.config import (
+    from landtake.config import (
         SENTINEL2_DIR, SENTINEL2_PATTERN, SENTINEL2_BANDS,
         YEARS, QUARTERS, SENTINEL2_MIN_VALUE, SENTINEL2_MAX_VALUE,
         SENTINEL2_NODATA, MAX_NODATA_PERCENT, MAX_CLOUD_PERCENT,

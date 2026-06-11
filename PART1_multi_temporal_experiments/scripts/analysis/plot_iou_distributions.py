@@ -21,9 +21,9 @@ RNG = np.random.default_rng(seed=42)
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 MT_EXPERIMENTS_DIR = SCRIPT_DIR.parent.parent
-sys.path.insert(0, str(MT_EXPERIMENTS_DIR.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # this experiment's scripts/ dir
 
-from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+from experiments_v2 import (
     V2_ANALYSIS_DIR, PLOT_COLORS,
 )
 

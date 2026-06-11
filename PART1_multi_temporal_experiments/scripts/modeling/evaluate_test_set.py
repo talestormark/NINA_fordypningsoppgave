@@ -28,17 +28,14 @@ from collections import defaultdict
 # Add paths for imports
 script_dir = Path(__file__).resolve().parent
 parent_dir = script_dir.parent.parent
-sys.path.insert(0, str(parent_dir))
-sys.path.insert(0, str(parent_dir.parent))
 
 # Import baseline utilities
-sys.path.insert(0, str(parent_dir.parent / "scripts" / "modeling"))
-from train import Metrics
+from landtake.metrics import Metrics
 
 # Import multi-temporal modules
-from models_multitemporal import create_multitemporal_model
-from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import get_dataloaders
-from PART1_multi_temporal_experiments.config import MT_EXPERIMENTS_DIR
+from landtake.models.multitemporal import create_multitemporal_model
+from landtake.data.multitemporal import get_dataloaders
+from landtake.config import MT_EXPERIMENTS_DIR
 
 
 def compute_sample_metrics(pred_logits: torch.Tensor, mask: torch.Tensor, threshold: float = 0.5):

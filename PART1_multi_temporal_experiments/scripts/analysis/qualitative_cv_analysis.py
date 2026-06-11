@@ -38,22 +38,20 @@ import pandas as pd
 # Add paths for imports
 script_dir = Path(__file__).resolve().parent
 parent_dir = script_dir.parent.parent  # PART1_multi_temporal_experiments/
-sys.path.insert(0, str(parent_dir))
-sys.path.insert(0, str(parent_dir.parent))  # NINA_fordypningsoppgave/
-sys.path.insert(0, str(parent_dir / "scripts" / "modeling"))  # For models_multitemporal
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # this experiment's scripts/ dir
 
-from PART1_multi_temporal_experiments.config import (
+from landtake.config import (
     YEARS, QUARTERS, SENTINEL2_BANDS
 )
-from PART1_multi_temporal_experiments.scripts.data_preparation.dataset_multitemporal import (
+from landtake.data.multitemporal import (
     MultiTemporalSentinel2Dataset, compute_normalization_stats
 )
-from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+from experiments_v2 import (
     EXPERIMENTS_V2, TEMPORAL_CONDITIONS,
     V2_OUTPUTS_DIR, V2_SENTINEL_DIR, V2_MASK_DIR, V2_ANALYSIS_DIR,
     V2_SPLITS_DIR, V2_CHANGE_LEVEL_PATH,
 )
-from models_multitemporal import create_multitemporal_model
+from landtake.models.multitemporal import create_multitemporal_model
 
 # Use temporal conditions only for qualitative CV analysis
 EXPERIMENTS = {k: EXPERIMENTS_V2[k] for k in TEMPORAL_CONDITIONS}

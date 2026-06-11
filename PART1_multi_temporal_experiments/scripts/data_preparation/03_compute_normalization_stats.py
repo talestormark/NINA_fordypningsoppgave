@@ -15,8 +15,6 @@ from pathlib import Path
 
 # Add parent directory to path to import config
 parent_dir = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(parent_dir))
-sys.path.insert(0, str(parent_dir.parent))
 
 import argparse
 import numpy as np
@@ -25,7 +23,7 @@ import rasterio
 from tqdm import tqdm
 
 try:
-    from PART1_multi_temporal_experiments.config import (
+    from landtake.config import (
         DATA_DIR,
         SENTINEL2_BANDS,
         SENTINEL2_NUM_BANDS,

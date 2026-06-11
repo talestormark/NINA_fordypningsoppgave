@@ -9,7 +9,7 @@ optimal settings for training.
 import torch
 import torch.cuda as cuda
 
-from models_multitemporal import LSTMUNet, count_parameters
+from landtake.models.multitemporal import LSTMUNet, count_parameters
 
 
 def profile_config(model, T, batch_size, image_size=512):

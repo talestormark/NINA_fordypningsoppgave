@@ -17,10 +17,9 @@ import sys
 from pathlib import Path
 
 parent_dir = Path(__file__).resolve().parent.parent.parent  # PART1_multi_temporal_experiments/
-sys.path.insert(0, str(parent_dir))
-sys.path.insert(0, str(parent_dir.parent))  # NINA_fordypningsoppgave/
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # this experiment's scripts/ dir
 
-from PART1_multi_temporal_experiments.scripts.experiments_v2 import (
+from experiments_v2 import (
     EXPERIMENTS_V2, DISPLAY_NAMES,
     V2_OUTPUTS_DIR, get_experiment_dir, get_history_path,
 )
