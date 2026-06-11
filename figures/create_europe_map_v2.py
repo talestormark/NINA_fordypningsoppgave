@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Create a map of Europe showing all data_v2 tile locations.
+Create a map of Europe showing all data_v2 tile locations (the study-area map).
 
-Adapted from create_europe_map.py for the expanded 260-tile dataset.
 Uses the filtered geojson from data_v2/.
 
 Output:

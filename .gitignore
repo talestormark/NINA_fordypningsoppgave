@@ -54,7 +54,7 @@ checkpoints/
 wandb/
 tensorboard/
 mlruns/
-experiments/annotation_efficiency/outputs/
+experiments/exp3_annotation/outputs/
 
 # Documentation - keep structure, ignore PDFs
 *.pdf
