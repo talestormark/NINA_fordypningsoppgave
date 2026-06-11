@@ -501,7 +501,7 @@ def get_dataloaders(
         Dictionary with 'train', 'val', 'test' dataloaders
     """
     # Load splits
-    base_dir = Path(__file__).resolve().parent.parent.parent.parent
+    from landtake.paths import REPO_ROOT as base_dir
     if splits_dir is None:
         splits_dir = base_dir / "outputs/splits"
     splits_dir = Path(splits_dir)
