@@ -7,9 +7,9 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
-#SBATCH --output=experiments/annotation_efficiency/outputs/linear_probe/slurm_%j.log
+#SBATCH --output=experiments/exp3_annotation/outputs/linear_probe/slurm_%j.log
 
 module load Anaconda3/2024.02-1
 conda activate masterthesis
 
-python experiments/annotation_efficiency/scripts/alphaearth_linear_probe.py
+python experiments/exp3_annotation/scripts/alphaearth_linear_probe.py

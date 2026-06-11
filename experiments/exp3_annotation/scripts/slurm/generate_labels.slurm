@@ -6,10 +6,10 @@
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=4G
-#SBATCH --output=experiments/annotation_efficiency/outputs/sparse_labels/slurm_%j.log
+#SBATCH --output=experiments/exp3_annotation/outputs/sparse_labels/slurm_%j.log
 
 module load Anaconda3/2024.02-1
 conda activate masterthesis
 
 cd /cluster/home/tmstorma/NINA_fordypningsoppgave
-python experiments/annotation_efficiency/scripts/data_preparation/generate_sparse_labels.py
+python experiments/exp3_annotation/scripts/data_preparation/generate_sparse_labels.py

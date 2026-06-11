@@ -6,7 +6,7 @@
 #SBATCH --time=0-02:00:00
 #SBATCH --mem=64G
 #SBATCH --cpus-per-task=4
-#SBATCH --output=PART2_spectral_spatial_resolution_experiments/outputs/logs/save_predictions_%j.log
+#SBATCH --output=experiments/exp2_input_representation/outputs/logs/save_predictions_%j.log
 
 # Step 1: Save ensemble test predictions for all experiments
 # Step 2: Run boundary metrics (BF@1, BF@2) on saved predictions
@@ -17,7 +17,7 @@ conda activate masterthesis
 
 cd /cluster/home/tmstorma/NINA_fordypningsoppgave
 
-ANALYSIS_DIR="PART2_spectral_spatial_resolution_experiments/scripts/analysis"
+ANALYSIS_DIR="experiments/exp2_input_representation/scripts/analysis"
 
 echo "========================================"
 echo "Step 1: Saving test predictions"
@@ -30,7 +30,7 @@ echo "========================================"
 echo "Step 2: Running boundary metrics"
 echo "========================================"
 
-EXPERIMENTS_DIR="PART2_spectral_spatial_resolution_experiments/outputs/experiments"
+EXPERIMENTS_DIR="experiments/exp2_input_representation/outputs/experiments"
 
 for exp in A1_s2_rgb A2_s2_rgbnir A3_s2_9band A4_s2_indices D2_alphaearth E4_ae_unet_sparse E4_A3_s2_9band_sparse; do
     PRED_DIR="${EXPERIMENTS_DIR}/${exp}/predictions"

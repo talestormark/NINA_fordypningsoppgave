@@ -62,15 +62,30 @@ Large data and outputs are git-ignored (see below), so the steps assume the data
 3. **Figures and statistics** — `figures/` (thesis figures) and `analysis/` (across-experiment
    paired tests and effect sizes).
 
-## Data and validation
+## What is published
 
-The repository contains **code only**. The imagery (Sentinel-2, AlphaEarth, PlanetScope, VHR),
-land-take masks, model checkpoints, experiment outputs and logs are git-ignored.
+Code, plus the small reproducibility artifacts: the SLURM job scripts, the train/val/test
+**splits** (`preprocessing/outputs/splits/`), the **normalisation statistics**, the **data
+dictionary** ([`DATA.md`](DATA.md)), and curated **result files** under each experiment. Model
+checkpoints, experiment outputs, logs, and the imagery/masks themselves are **not** published.
 
 Data validation lives in the kept pipeline: `preprocessing/scripts/02_verify_data.py`
 (CRS / pixel size / band counts / grid alignment for all sources) and
 `experiments/exp1_temporal_sampling/scripts/data_preparation/01_validate_sentinel2_temporal.py`
 (per-quarter Sentinel-2 quality).
+
+## Data availability
+
+The satellite imagery (Sentinel-2, AlphaEarth, PlanetScope, Google VHR) and the land-take annotation
+masks are **not redistributed** here. They were prepared in collaboration with NINA, and the optical
+sources carry their own terms (Google, Planet Labs). The dataset is described in [`DATA.md`](DATA.md);
+access enquiries go to the data provider (Zander Venter, NINA — zander.venter@nina.no). The Sentinel-2
+and AlphaEarth layers are derivable from Google Earth Engine using the script referenced in `DATA.md`.
+
+## Licence
+
+Source code is released under the **MIT Licence** ([`LICENSE`](LICENSE)). The licence covers the code
+only — not the data, embeddings, or annotation masks.
 
 ## Author
 

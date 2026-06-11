@@ -6,7 +6,7 @@
 #SBATCH --time=0-02:00:00
 #SBATCH --mem=64G
 #SBATCH --cpus-per-task=4
-#SBATCH --output=experiments/annotation_efficiency/outputs/slurm_budget_eval_%j.log
+#SBATCH --output=experiments/exp3_annotation/outputs/slurm_budget_eval_%j.log
 
 # Test-set evaluation for the point-budget variants of E4 (masked-loss U-Net on AlphaEarth).
 # Runs 5-fold inference + ensemble for n5, n10, n100 and writes test_results.json
@@ -19,7 +19,7 @@ conda activate masterthesis
 cd /cluster/home/tmstorma/NINA_fordypningsoppgave
 
 echo "=== Budget variant test evaluation ==="
-python experiments/annotation_efficiency/scripts/modeling/evaluate_test_set.py \
+python experiments/exp3_annotation/scripts/modeling/evaluate_test_set.py \
     --exp E4_D2_alphaearth_sparse_n5 \
           E4_D2_alphaearth_sparse_n10 \
           E4_D2_alphaearth_sparse_n100 \

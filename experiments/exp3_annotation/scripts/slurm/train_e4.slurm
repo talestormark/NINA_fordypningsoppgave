@@ -5,7 +5,7 @@
 #SBATCH --time=0-03:00:00
 #SBATCH --mem=64G
 #SBATCH --cpus-per-task=4
-#SBATCH --output=experiments/annotation_efficiency/outputs/E4_ae_unet_sparse/slurm_%x_%j.log
+#SBATCH --output=experiments/exp3_annotation/outputs/E4_ae_unet_sparse/slurm_%x_%j.log
 
 # E4: Masked-loss U-Net on AlphaEarth with sparse labels
 # Usage: sbatch --job-name=ae_E4_f0 train_e4.slurm 0
@@ -18,10 +18,10 @@ conda activate masterthesis
 
 cd /cluster/home/tmstorma/NINA_fordypningsoppgave
 
-LABELS=experiments/annotation_efficiency/outputs/sparse_labels/sparse_labels_seed42.json
+LABELS=experiments/exp3_annotation/outputs/sparse_labels/sparse_labels_seed42.json
 
 echo "=== E4: Masked-loss U-Net, fold ${FOLD} ==="
-python experiments/annotation_efficiency/scripts/modeling/train_masked_unet.py \
+python experiments/exp3_annotation/scripts/modeling/train_masked_unet.py \
     --fold $FOLD \
     --sparse-labels $LABELS \
     --epochs 400 \

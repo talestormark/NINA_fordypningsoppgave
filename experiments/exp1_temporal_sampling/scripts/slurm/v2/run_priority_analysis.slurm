@@ -6,7 +6,7 @@
 #SBATCH --time=0-04:00:00
 #SBATCH --mem=64G
 #SBATCH --cpus-per-task=4
-#SBATCH --output=PART1_multi_temporal_experiments/outputs_v2/logs/%x_%j.log
+#SBATCH --output=experiments/exp1_temporal_sampling/outputs_v2/logs/%x_%j.log
 
 module --quiet purge
 module load Anaconda3/2024.02-1
@@ -22,9 +22,9 @@ echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || ec
 echo ""
 
 if [ "$SLURM_JOB_NAME" = "test_eval" ]; then
-    python PART1_multi_temporal_experiments/scripts/modeling/evaluate_test_final.py --experiments $EXPS
+    python experiments/exp1_temporal_sampling/scripts/modeling/evaluate_test_final.py --experiments $EXPS
 elif [ "$SLURM_JOB_NAME" = "persample_stats" ]; then
-    python PART1_multi_temporal_experiments/scripts/modeling/statistical_analysis_persample.py --experiments $EXPS
+    python experiments/exp1_temporal_sampling/scripts/modeling/statistical_analysis_persample.py --experiments $EXPS
 fi
 
 echo ""

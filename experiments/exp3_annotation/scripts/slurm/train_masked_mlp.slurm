@@ -20,7 +20,7 @@ conda activate masterthesis
 
 cd /cluster/home/tmstorma/NINA_fordypningsoppgave
 
-LABELS="experiments/annotation_efficiency/outputs/sparse_labels/${LABELS_FILE}"
+LABELS="experiments/exp3_annotation/outputs/sparse_labels/${LABELS_FILE}"
 
 EXTRA_ARGS=""
 if [ -n "$OUTPUT_DIR" ]; then
@@ -31,7 +31,7 @@ echo "=== Per-pixel MLP: ${EXPERIMENT} fold ${FOLD} ==="
 echo "Labels: ${LABELS}"
 echo ""
 
-python experiments/annotation_efficiency/scripts/modeling/train_masked_mlp.py \
+python experiments/exp3_annotation/scripts/modeling/train_masked_mlp.py \
     --experiment $EXPERIMENT \
     --fold $FOLD \
     --sparse-labels $LABELS \

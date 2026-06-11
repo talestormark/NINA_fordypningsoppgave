@@ -5,8 +5,8 @@
 #SBATCH --time=0-01:00:00
 #SBATCH --mem=64G
 #SBATCH --cpus-per-task=4
-#SBATCH --output=experiments/annotation_efficiency/outputs/slurm_val_eval_%x_%j.log
-#SBATCH --error=experiments/annotation_efficiency/outputs/slurm_val_eval_%x_%j.err
+#SBATCH --output=experiments/exp3_annotation/outputs/slurm_val_eval_%x_%j.log
+#SBATCH --error=experiments/exp3_annotation/outputs/slurm_val_eval_%x_%j.err
 
 # Validation-set inference for sparse U-Net / MLP experiments.
 # Pass --data-experiment (D2_alphaearth or A3_s2_9band) and one or more --exp names.
@@ -30,7 +30,7 @@ echo "Data experiment: ${DATA_EXP}"
 echo "Experiments: ${EXP_LIST}"
 echo ""
 
-python experiments/annotation_efficiency/scripts/modeling/evaluate_val_set.py \
+python experiments/exp3_annotation/scripts/modeling/evaluate_val_set.py \
     --data-experiment "${DATA_EXP}" \
     --exp ${EXP_LIST} \
     --num-folds 5
