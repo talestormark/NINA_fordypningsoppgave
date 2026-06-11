@@ -1,0 +1,26 @@
+chapter,label,experiment,n_tiles,micro_iou,macro_iou
+RQ1,LSTM-2,bi_temporal,25,0.532213,0.412756
+RQ1,LSTM-7,annual,25,0.533161,0.416071
+RQ1,LSTM-14,bi_seasonal,25,0.526955,0.405502
+RQ1,EarlyFusion,early_fusion,25,0.527833,0.415202
+RQ1,Concat,late_fusion,25,0.522626,0.408328
+RQ1,LSTM-2-lite,lstm_lite,25,0.521847,0.409522
+RQ1,Pool-7,late_fusion_pool,25,0.536425,0.424890
+RQ1,Conv3D-7,conv3d_fusion,25,0.536813,0.421035
+RQ1,LSTM-7-lite,lstm7_lite,25,0.544530,0.426671
+RQ2,RGB,A1_s2_rgb,40,0.501938,0.399145
+RQ2,RGB+NIR,A2_s2_rgbnir,40,0.528326,0.441206
+RQ2,9-band,A3_s2_9band,40,0.525796,0.434427
+RQ2,9-band + indices,A4_s2_indices,40,0.526160,0.431442
+RQ2,AlphaEarth,D2_alphaearth,40,0.520582,0.412698
+RQ3,D2 dense AE,D2_alphaearth,40,0.520582,0.412698
+RQ3,E4 sparse AE (50),E4_ae_unet_sparse,40,0.515122,0.403571
+RQ3,A3 dense S-2,A3_s2_9band,40,0.525796,0.434427
+RQ3,E4-S2 sparse,E4_A3_s2_9band_sparse,40,0.514082,0.419552
+RQ3,E4 sparse AE (n5/10pts),E4_D2_alphaearth_sparse_n5,40,0.512536,0.389378
+RQ3,E4 sparse AE (n10/20pts),E4_D2_alphaearth_sparse_n10,40,0.504945,0.392123
+RQ3,E4 sparse AE (n100/200pts),E4_D2_alphaearth_sparse_n100,40,0.530043,0.412291
+RQ3,E4-rand AE,E4_rand_D2_alphaearth,40,0.521465,0.394867
+RQ3,E4-rand S-2,E4_rand_A3_s2_9band,40,0.532992,0.433199
+RQ3,E1 balanced AE,E1_ae_rf_sparse,40,0.355727,0.294196
+RQ3,E1-rand AE,E1_rand_ae_rf_sparse,40,0.191555,0.134610

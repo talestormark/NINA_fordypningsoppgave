@@ -1,0 +1,38 @@
+{
+  "metric": "iou",
+  "source": "test_set_pertile",
+  "n_permutations": 10000,
+  "n_bootstrap": 10000,
+  "seed": 42,
+  "anchor": "Combined focal+dice (A3_s2_9band)",
+  "comparisons": [
+    {
+      "label": "Focal-only vs combined",
+      "n_tiles": 40,
+      "mean_a": 0.424497963488102,
+      "mean_b": 0.43442656062543394,
+      "mean_diff": -0.009928597137331963,
+      "ci_95_lower": -0.03037501776125279,
+      "ci_95_upper": 0.00965374289546161,
+      "permutation_p": 0.3417658234176582,
+      "cliffs_delta": 0.025,
+      "cliffs_delta_interp": "negligible",
+      "adjusted_p": 0.6835316468353164,
+      "significant": false
+    },
+    {
+      "label": "Dice-only vs combined",
+      "n_tiles": 40,
+      "mean_a": 0.4337714025750756,
+      "mean_b": 0.43442656062543394,
+      "mean_diff": -0.0006551580503582954,
+      "ci_95_lower": -0.01829865696374327,
+      "ci_95_upper": 0.01577707347460091,
+      "permutation_p": 0.936906309369063,
+      "cliffs_delta": 0.125,
+      "cliffs_delta_interp": "negligible",
+      "adjusted_p": 0.936906309369063,
+      "significant": false
+    }
+  ]
+}

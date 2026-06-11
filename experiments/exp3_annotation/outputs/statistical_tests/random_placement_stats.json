@@ -1,0 +1,57 @@
+{
+  "metric": "iou",
+  "source": "test_set_pertile",
+  "n_permutations": 10000,
+  "n_bootstrap": 10000,
+  "seed": 42,
+  "comparisons": [
+    {
+      "label": "AE U-Net (random vs balanced)",
+      "exp_a": "E4-rand (AE)",
+      "exp_b": "E4 (AE)",
+      "n_tiles": 40,
+      "mean_a": 0.39486720291897653,
+      "mean_b": 0.40357143816072494,
+      "mean_diff": -0.008704235241748393,
+      "ci_95_lower": -0.021784373134141787,
+      "ci_95_upper": 0.004231582021457143,
+      "permutation_p": 0.21337866213378662,
+      "cliffs_delta": -0.275,
+      "cliffs_delta_interp": "small",
+      "adjusted_p": 0.21337866213378662,
+      "significant": false
+    },
+    {
+      "label": "S-2 U-Net (random vs balanced)",
+      "exp_a": "E4-rand (S-2)",
+      "exp_b": "E4 (S-2)",
+      "n_tiles": 40,
+      "mean_a": 0.43319907439872624,
+      "mean_b": 0.4195516290143132,
+      "mean_diff": 0.013647445384413004,
+      "ci_95_lower": 0.0004985657194629335,
+      "ci_95_upper": 0.027182800935115665,
+      "permutation_p": 0.05039496050394961,
+      "cliffs_delta": 0.175,
+      "cliffs_delta_interp": "small",
+      "adjusted_p": 0.10078992100789921,
+      "significant": false
+    },
+    {
+      "label": "AE RF (random vs balanced)",
+      "exp_a": "E1-rand (AE)",
+      "exp_b": "E1 (AE)",
+      "n_tiles": 40,
+      "mean_a": 0.1346104798639043,
+      "mean_b": 0.2941957959237671,
+      "mean_diff": -0.15958531605986284,
+      "ci_95_lower": -0.22443122477226235,
+      "ci_95_upper": -0.09320383161608321,
+      "permutation_p": 0.00019998000199980003,
+      "cliffs_delta": -0.65,
+      "cliffs_delta_interp": "large",
+      "adjusted_p": 0.0005999400059994001,
+      "significant": true
+    }
+  ]
+}

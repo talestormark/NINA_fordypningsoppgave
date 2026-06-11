@@ -1,0 +1,38 @@
+{
+  "metric": "iou",
+  "source": "test_set_pertile",
+  "n_permutations": 10000,
+  "n_bootstrap": 10000,
+  "seed": 42,
+  "anchor": "EarlyFusion T=2 (A3_s2_9band)",
+  "comparisons": [
+    {
+      "label": "Pool-7 vs EarlyFusion",
+      "n_tiles": 40,
+      "mean_a": 0.41795672560110686,
+      "mean_b": 0.43442656062543394,
+      "mean_diff": -0.01646983502432704,
+      "ci_95_lower": -0.046436987156048416,
+      "ci_95_upper": 0.013332853857427834,
+      "permutation_p": 0.29947005299470053,
+      "cliffs_delta": 0.025,
+      "cliffs_delta_interp": "negligible",
+      "adjusted_p": 0.29947005299470053,
+      "significant": false
+    },
+    {
+      "label": "LSTM-2-lite vs EarlyFusion",
+      "n_tiles": 40,
+      "mean_a": 0.2369950537569821,
+      "mean_b": 0.43442656062543394,
+      "mean_diff": -0.19743150686845184,
+      "ci_95_lower": -0.25133358970517294,
+      "ci_95_upper": -0.14450371021870523,
+      "permutation_p": 9.999000099990002e-05,
+      "cliffs_delta": -0.825,
+      "cliffs_delta_interp": "large",
+      "adjusted_p": 0.00019998000199980003,
+      "significant": true
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+chapter,label,experiment,source,n_val_per_fold,n_test,cv_macro_mean,cv_macro_std,cv_micro_mean,cv_micro_std,test_macro,test_micro,delta_micro_minus_macro_pp,delta_cv_macro_minus_test_macro_pp
+RQ1,Conv3D-7,exp008,Part1,28,25,43.24,5.51,52.15,4.97,42.10,53.68,+8.90,+1.14
+RQ1,EarlyFusion,exp005,Part1,28,25,45.11,4.15,53.21,5.87,41.52,52.78,+8.10,+3.59
+RQ1,LSTM-14,exp002,Part1,28,25,41.20,5.79,50.92,5.06,40.55,52.70,+9.72,+0.65
+RQ1,LSTM-2,exp003,Part1,28,25,43.70,5.07,51.59,6.26,41.28,53.22,+7.89,+2.42
+RQ1,LSTM-2-lite,exp009,Part1,28,25,43.31,4.72,51.56,6.00,40.95,52.18,+8.25,+2.36
+RQ1,LSTM-7,exp001,Part1,28,25,42.89,5.30,51.98,5.31,41.61,53.32,+9.09,+1.28
+RQ1,LSTM-7-lite,exp010,Part1,28,25,43.48,5.12,52.27,5.33,42.67,54.45,+8.79,+0.81
+RQ1,Concat,exp006,Part1,28,25,42.89,5.12,51.59,6.35,40.83,52.26,+8.69,+2.06
+RQ1,Pool-7,exp007,Part1,28,25,43.98,4.78,52.14,5.35,42.49,53.64,+8.16,+1.49
+RQ2,9-band + indices,A4_s2_indices,Part2,44,40,45.80,2.03,52.67,2.42,43.14,52.62,+6.88,+2.65
+RQ2,RGB,A1_s2_rgb,Part2,44,40,43.69,2.35,50.45,3.12,39.91,50.19,+6.76,+3.77
+RQ2,RGB+NIR,A2_s2_rgbnir,Part2,44,40,45.24,2.65,51.58,2.77,44.12,52.83,+6.34,+1.12
+RQ3,A3 dense S-2,A3_s2_9band,Part2,44,40,44.04,3.11,51.29,3.01,43.44,52.58,+7.25,+0.60
+RQ3,D2 dense AE,D2_alphaearth,Part2,44,40,44.65,2.26,54.17,0.94,41.27,52.06,+9.53,+3.38
+RQ3,E1 balanced AE,E1_ae_rf_sparse,AE-RF,44,40,30.33,1.40,,,29.42,35.57,,+0.91
+RQ3,E1-rand AE,E1_rand_ae_rf_sparse,AE-RF,44,40,13.39,1.92,,,13.46,19.16,,-0.07
+RQ3,E4 sparse AE (50),E4_ae_unet_sparse,AE-UNet,44,40,43.01,2.36,53.72,0.68,40.36,51.51,+10.72,+2.65
+RQ3,E4 sparse AE (n10/20pts),E4_D2_alphaearth_sparse_n10,AE-UNet,44,40,42.81,1.74,53.58,1.28,39.21,50.49,+10.77,+3.60
+RQ3,E4 sparse AE (n100/200pts),E4_D2_alphaearth_sparse_n100,AE-UNet,44,40,44.14,2.54,54.35,0.94,41.23,53.00,+10.21,+2.91
+RQ3,E4 sparse AE (n5/10pts),E4_D2_alphaearth_sparse_n5,AE-UNet,44,40,41.09,2.44,52.02,0.71,38.94,51.25,+10.93,+2.15
+RQ3,E4-S2 sparse,E4_A3_s2_9band_sparse,AE-UNet,44,40,43.95,2.70,51.25,2.65,41.96,51.41,+7.30,+2.00
+RQ3,E4-rand AE,E4_rand_D2_alphaearth,AE-UNet,44,40,42.81,2.17,53.63,0.80,39.49,52.15,+10.82,+3.33
+RQ3,E4-rand S-2,E4_rand_A3_s2_9band,AE-UNet,44,40,43.94,2.55,51.83,1.69,43.32,53.30,+7.89,+0.62
+RQ3,E4_D2_alphaearth_sparse_n15,E4_D2_alphaearth_sparse_n15,AE-UNet,44,,42.89,1.47,53.05,1.27,,,+10.16,
+RQ3,E5_D2_alphaearth_mlp_sparse,E5_D2_alphaearth_mlp_sparse,AE-UNet,44,,43.33,1.54,54.76,0.82,,,+11.42,

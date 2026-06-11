@@ -1,0 +1,6 @@
+{
+  "metric": "iou",
+  "source": "validation",
+  "n_permutations": 1000,
+  "comparisons": []
+}

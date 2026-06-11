@@ -1,0 +1,37 @@
+{
+  "metric": "iou",
+  "source": "test_set_pertile",
+  "n_permutations": 10000,
+  "n_bootstrap": 10000,
+  "seed": 42,
+  "comparisons": [
+    {
+      "label": "MLP vs RF",
+      "n_tiles": 40,
+      "mean_a": 0.40100198625586925,
+      "mean_b": 0.2941957959237671,
+      "mean_diff": 0.10680619033210212,
+      "ci_95_lower": 0.06479709811680201,
+      "ci_95_upper": 0.14792464167088287,
+      "permutation_p": 9.999000099990002e-05,
+      "cliffs_delta": 0.55,
+      "cliffs_delta_interp": "large",
+      "adjusted_p": 0.00019998000199980003,
+      "significant": true
+    },
+    {
+      "label": "MLP vs U-Net",
+      "n_tiles": 40,
+      "mean_a": 0.40100198625586925,
+      "mean_b": 0.40357143816072494,
+      "mean_diff": -0.0025694519048556686,
+      "ci_95_lower": -0.01829318378644529,
+      "ci_95_upper": 0.012744718195172026,
+      "permutation_p": 0.7521247875212479,
+      "cliffs_delta": -0.05,
+      "cliffs_delta_interp": "negligible",
+      "adjusted_p": 0.7521247875212479,
+      "significant": false
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+block,experiment,anchor,metric,exp_mean,exp_std,anchor_mean,anchor_std,mean_diff,ci_low,ci_high,perm_p,adj_p,cohens_dz,effect_size,significant

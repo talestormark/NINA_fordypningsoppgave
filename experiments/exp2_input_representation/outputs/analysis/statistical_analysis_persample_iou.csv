@@ -1,0 +1,10 @@
+family,comparison,experiment,anchor,n_tiles,exp_mean,anchor_mean,mean_diff,ci_lower,ci_upper,perm_p,adj_p,cliffs_delta,cliffs_delta_interp,significant
+"Block A: Spectral ablation (vs A3 anchor)","A1 vs A3 (RGB vs 9-band)",A1_s2_rgb,A3_s2_9band,40,0.399145,0.434427,-0.035281,-0.064077,-0.008604,0.017398,0.052195,-0.275000,small,False
+"Block A: Spectral ablation (vs A3 anchor)","A2 vs A3 (RGBNIR vs 9-band)",A2_s2_rgbnir,A3_s2_9band,40,0.441206,0.434427,0.006780,-0.004866,0.018557,0.278972,0.557944,0.175000,small,False
+"Block A: Spectral ablation (vs A3 anchor)","A4 vs A3 (indices vs 9-band)",A4_s2_indices,A3_s2_9band,40,0.431442,0.434427,-0.002985,-0.012861,0.006162,0.557044,0.557944,0.050000,negligible,False
+"RQ3e: Annotation efficiency","E4 vs D2 (sparse vs dense, AE U-Net)",E4_ae_unet_sparse,D2_alphaearth,40,0.403571,0.412698,-0.009126,-0.022760,0.003988,0.185381,0.458954,-0.050000,negligible,False
+"RQ3e: Annotation efficiency","E4-S2 vs A3 (sparse vs dense, S2 U-Net)",E4_A3_s2_9band_sparse,A3_s2_9band,40,0.419552,0.434427,-0.014875,-0.035614,0.004893,0.152985,0.458954,-0.125000,negligible,False
+"RQ3e: Annotation efficiency","E4 vs A3 (sparse AE vs dense S2)",E4_ae_unet_sparse,A3_s2_9band,40,0.403571,0.434427,-0.030855,-0.054812,-0.007076,0.017998,0.089991,-0.300000,small,False
+"RQ3e: Annotation efficiency","E4-S2 vs E4 (S2 vs AE, both sparse)",E4_A3_s2_9band_sparse,E4_ae_unet_sparse,40,0.419552,0.403571,0.015980,-0.008439,0.039124,0.207179,0.458954,0.150000,small,False
+"RQ3e: Annotation efficiency","D2 vs A3 (AE vs S2, both dense)",D2_alphaearth,A3_s2_9band,40,0.412698,0.434427,-0.021729,-0.042671,-0.001144,0.053195,0.212779,-0.150000,small,False
+"RQ3e: Annotation efficiency","E1 vs A3 (RF sparse vs U-Net dense)",E1_ae_rf_sparse,A3_s2_9band,40,0.294196,0.434427,-0.140231,-0.188276,-0.092171,0.000100,0.000600,-0.650000,large,True

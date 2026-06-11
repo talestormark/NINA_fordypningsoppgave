@@ -66,8 +66,12 @@ Large data and outputs are git-ignored (see below), so the steps assume the data
 
 Code, plus the small reproducibility artifacts: the SLURM job scripts, the train/val/test
 **splits** (`preprocessing/outputs/splits/`), the **normalisation statistics**, the **data
-dictionary** ([`DATA.md`](DATA.md)), and curated **result files** under each experiment. Model
-checkpoints, experiment outputs, logs, and the imagery/masks themselves are **not** published.
+dictionary** ([`DATA.md`](DATA.md)), and curated **result files**. In particular,
+`outputs/analysis/cv_macro_recompute.csv` holds the cross-validation and held-out-test per-tile
+macro IoU for every reported configuration (so the thesis's IoU tables can be checked without
+re-running anything), and each experiment's `outputs/.../statistical_tests/` holds the paired-test
+outputs behind the significance tables. Model checkpoints, experiment outputs, logs, and the
+imagery/masks themselves are **not** published.
 
 Data validation lives in the kept pipeline: `preprocessing/scripts/02_verify_data.py`
 (CRS / pixel size / band counts / grid alignment for all sources) and
