@@ -77,6 +77,13 @@ docs_v1/papers/
 # Markdown docs (experiment logs, notes, plans)
 *.md
 *.sty
-# Keep top-level project README if one exists
+# Keep top-level project README and data dictionary
 !README.md
+!DATA.md
+
+# --- Reproducibility artifacts intentionally tracked despite the broad ignores
+#     above (SLURM job scripts, train/val/test splits, normalisation stats,
+#     per-experiment READMEs, curated result files). These are force-added with
+#     `git add -f`; the data itself (imagery, masks, checkpoints, logs) stays
+#     ignored. Run `git ls-files` to see exactly what is published.
 
