@@ -6,7 +6,7 @@ Land_take_masks/
 PlanetScope/
 Sentinel/
 VHR_google/
-data/
+/data/
 
 # OS / editor artifacts
 .DS_Store
