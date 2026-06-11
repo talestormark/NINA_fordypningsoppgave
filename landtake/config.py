@@ -42,7 +42,7 @@ REFID_LIST_FILE = BASE_DIR / "land_take_bboxes_650m_v1.geojson"
 # MULTI-TEMPORAL EXPERIMENT DIRECTORIES
 # ============================================================================
 
-MULTITEMPORAL_DIR = BASE_DIR / "PART1_multi_temporal_experiments"
+MULTITEMPORAL_DIR = BASE_DIR / "experiments/exp1_temporal_sampling"
 
 # Script directories
 MT_SCRIPTS_DIR = MULTITEMPORAL_DIR / "scripts"

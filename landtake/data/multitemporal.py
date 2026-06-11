@@ -519,7 +519,7 @@ def get_dataloaders(
 
         # Load change level information for stratification
         if change_level_path is None:
-            change_level_path = base_dir / "PART1_multi_temporal_experiments" / "outputs_v1" / "sample_change_levels.csv"
+            change_level_path = base_dir / "experiments/exp1_temporal_sampling" / "outputs_v1" / "sample_change_levels.csv"
         change_level_path = Path(change_level_path)
         change_level_df = pd.read_csv(change_level_path)
         refid_to_level = dict(zip(change_level_df['refid'], change_level_df['change_level']))

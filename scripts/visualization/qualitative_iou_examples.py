@@ -34,8 +34,8 @@ plt.rcParams.update({
 # ---------------------------------------------------------------------------
 REPO = Path("/cluster/home/tmstorma/NINA_fordypningsoppgave")
 EXPERIMENT = "E4_ae_unet_sparse"
-PRED_DIR = REPO / "PART2_spectral_spatial_resolution_experiments" / "outputs" / "experiments" / EXPERIMENT / "predictions"
-TEST_RESULTS_JSON = REPO / "PART2_spectral_spatial_resolution_experiments" / "outputs" / "experiments" / EXPERIMENT / "test_results.json"
+PRED_DIR = REPO / "experiments/exp2_input_representation" / "outputs" / "experiments" / EXPERIMENT / "predictions"
+TEST_RESULTS_JSON = REPO / "experiments/exp2_input_representation" / "outputs" / "experiments" / EXPERIMENT / "test_results.json"
 
 S2_DIR = REPO / "data_v2" / "Sentinel"
 MASK_DIR = REPO / "data_v2" / "Land_take_masks_coarse"

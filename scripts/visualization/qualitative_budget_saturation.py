@@ -12,7 +12,7 @@ compute_iou) are copied from qualitative_iou_examples.py to keep this script
 self-contained, matching the convention of scripts/visualization/.
 
 Prediction sources (per-tile ensemble probability maps):
-  10/20/30/200 pts -> experiments/annotation_efficiency/outputs/
+  10/20/30/200 pts -> experiments/exp3_annotation/outputs/
                       E4_D2_alphaearth_sparse_n{5,10,15,100}/ensemble_predictions/{refid}.npz
   50 pts           -> PART2/.../E4_ae_unet_sparse/predictions/{refid}.npz
   dense            -> PART2/.../D2_alphaearth/predictions/{refid}.npz
@@ -41,8 +41,8 @@ plt.rcParams.update({
 # Paths and constants
 # ---------------------------------------------------------------------------
 REPO = Path("/cluster/home/tmstorma/NINA_fordypningsoppgave")
-PART2_EXP = REPO / "PART2_spectral_spatial_resolution_experiments" / "outputs" / "experiments"
-AE_OUT = REPO / "experiments" / "annotation_efficiency" / "outputs"
+PART2_EXP = REPO / "experiments/exp2_input_representation" / "outputs" / "experiments"
+AE_OUT = REPO / "experiments" / "exp3_annotation" / "outputs"
 
 # Tile selection: median of the 50-point model's per-tile IoU distribution.
 SELECT_DIR = PART2_EXP / "E4_ae_unet_sparse" / "predictions"

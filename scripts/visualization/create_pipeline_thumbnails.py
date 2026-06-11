@@ -26,7 +26,7 @@ AE_DIR = REPO / "data_v2" / "AlphaEarth"
 MASK_DIR = REPO / "data_v2" / "Land_take_masks_coarse"
 PRED_DIR = (
     REPO
-    / "PART2_spectral_spatial_resolution_experiments"
+    / "experiments/exp2_input_representation"
     / "outputs"
     / "experiments"
     / "A3_s2_9band"

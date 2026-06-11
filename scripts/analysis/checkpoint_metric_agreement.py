@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-RUN_GLOB = "PART1_multi_temporal_experiments/outputs_v3/macrocheck_exp005_fold*"
+RUN_GLOB = "experiments/exp1_temporal_sampling/outputs_v3/macrocheck_exp005_fold*"
 
 
 def spearman(a, b):

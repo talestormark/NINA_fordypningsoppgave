@@ -20,9 +20,9 @@ from pathlib import Path
 from statistics import mean, pstdev
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-PART1_DIR = REPO_ROOT / "PART1_multi_temporal_experiments"
-PART2_DIR = REPO_ROOT / "PART2_spectral_spatial_resolution_experiments"
-AE_DIR = REPO_ROOT / "experiments" / "annotation_efficiency"
+PART1_DIR = REPO_ROOT / "experiments/exp1_temporal_sampling"
+PART2_DIR = REPO_ROOT / "experiments/exp2_input_representation"
+AE_DIR = REPO_ROOT / "experiments" / "exp3_annotation"
 
 OUT_PATH = REPO_ROOT / "outputs" / "analysis" / "cv_macro_recompute.csv"
 OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
