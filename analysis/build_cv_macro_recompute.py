@@ -19,7 +19,7 @@ import csv
 from pathlib import Path
 from statistics import mean, pstdev
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+from landtake.paths import REPO_ROOT
 PART1_DIR = REPO_ROOT / "experiments/exp1_temporal_sampling"
 PART2_DIR = REPO_ROOT / "experiments/exp2_input_representation"
 AE_DIR = REPO_ROOT / "experiments" / "exp3_annotation"

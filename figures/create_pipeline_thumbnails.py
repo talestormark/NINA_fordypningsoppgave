@@ -20,7 +20,7 @@ import rasterio
 from pathlib import Path
 from sklearn.decomposition import PCA
 
-REPO = Path(__file__).resolve().parents[2]
+from landtake.paths import REPO_ROOT as REPO
 S2_DIR = REPO / "data_v2" / "Sentinel"
 AE_DIR = REPO / "data_v2" / "AlphaEarth"
 MASK_DIR = REPO / "data_v2" / "Land_take_masks_coarse"

@@ -22,7 +22,7 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
+from landtake.paths import REPO_ROOT as ROOT
 RUN_GLOB = "experiments/exp1_temporal_sampling/outputs_v3/macrocheck_exp005_fold*"
 
 

@@ -29,7 +29,8 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import FancyBboxPatch, Polygon
 from pathlib import Path
 
-OUT_DIR = Path(__file__).resolve().parents[2] / "REPORT" / "Figures" / "2_Background"
+from landtake.paths import REPO_ROOT
+OUT_DIR = REPO_ROOT / "REPORT" / "Figures" / "2_Background"
 
 # Per-role palette (semi-transparent so they read as light tints over white,
 # with the black edges remaining crisp).

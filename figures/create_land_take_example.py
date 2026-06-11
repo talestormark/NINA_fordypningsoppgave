@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+from landtake.paths import REPO_ROOT as REPO
 VHR_DIR = REPO / "data_v2" / "VHR_google"
 MASK_DIR = REPO / "data_v2" / "Land_take_masks_coarse"
 SPLITS_CSV = REPO / "preprocessing" / "outputs" / "splits" / "unified" / "split_info.csv"

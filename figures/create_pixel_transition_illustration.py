@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from pathlib import Path
 
-OUT_DIR = Path(__file__).resolve().parents[2] / "REPORT" / "figures"
+from landtake.paths import REPO_ROOT
+OUT_DIR = REPO_ROOT / "REPORT" / "figures"
 
 
 def draw_grid(ax, title, value, label_letter):

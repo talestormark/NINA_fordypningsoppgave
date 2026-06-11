@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from sklearn.decomposition import PCA
 
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+from landtake.paths import REPO_ROOT as PROJECT_ROOT
 DATA_V2 = PROJECT_ROOT / "data_v2"
 OUTPUT_DIR = PROJECT_ROOT / "REPORT" / "figures"
 

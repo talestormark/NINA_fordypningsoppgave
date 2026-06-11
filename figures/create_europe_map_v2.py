@@ -21,7 +21,7 @@ plt.rcParams.update({
     "mathtext.fontset": "cm",
 })
 
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+from landtake.paths import REPO_ROOT as PROJECT_ROOT
 GEOJSON_PATH = PROJECT_ROOT / "data_v2" / "land_take_bboxes_650m_v1_filtered.geojson"
 MASK_ANALYSIS_PATH = PROJECT_ROOT / "preprocessing" / "outputs" / "mask_analysis.csv"
 OUTPUT_DIR = PROJECT_ROOT / "REPORT" / "figures"

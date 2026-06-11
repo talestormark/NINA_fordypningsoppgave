@@ -29,7 +29,8 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import FancyBboxPatch, Polygon
 from pathlib import Path
 
-OUT_DIR = Path(__file__).resolve().parents[2] / "REPORT" / "Figures" / "2_Background"
+from landtake.paths import REPO_ROOT
+OUT_DIR = REPO_ROOT / "REPORT" / "Figures" / "2_Background"
 
 # Palette (matches the fusion figure family).
 # Same role across figures uses the same colour: pink = pretrained encoder

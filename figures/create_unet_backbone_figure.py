@@ -20,7 +20,7 @@ plt.rcParams.update({
     "mathtext.fontset": "cm",
 })
 
-REPO = Path(__file__).resolve().parents[2]
+from landtake.paths import REPO_ROOT as REPO
 OUT_DIR = REPO / "REPORT" / "Figures" / "3_Methodology"
 
 

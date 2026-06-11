@@ -29,7 +29,8 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import Polygon
 from pathlib import Path
 
-OUT_DIR = Path(__file__).resolve().parents[2] / "REPORT" / "Figures" / "2_Background"
+from landtake.paths import REPO_ROOT
+OUT_DIR = REPO_ROOT / "REPORT" / "Figures" / "2_Background"
 
 # Okabe-Ito colourblind-safe palette
 RF_FILL = mcolors.to_rgba("#c99e4b", alpha=0.45)  # tan/gold, semi-transparent;
