@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "landtake"
+version = "0.1.0"
+description = "Shared library for land-take detection experiments (NINA master thesis)"
+requires-python = ">=3.10"
+
+# Runtime dependencies are provided by environment.yml (conda). This project is
+# installed editable (`pip install -e .`) only to expose the `landtake` package
+# and the three experiment packages on the import path, replacing sys.path hacks.
+
+[tool.setuptools.packages.find]
+include = ["landtake*", "experiments*", "preprocessing*"]
