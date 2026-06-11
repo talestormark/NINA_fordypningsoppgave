@@ -188,6 +188,8 @@ def train(args):
         fold=args.fold,
         num_folds=args.num_folds,
         seed=args.seed,
+        train_subset=args.train_subset,
+        subset_seed=args.subset_seed,
     )
 
     train_loader = dataloaders['train']
@@ -486,6 +488,11 @@ def main():
     parser.add_argument('--fold', type=int, default=None,
                         help='Fold index (0 to num-folds-1)')
     parser.add_argument('--num-folds', type=int, default=5)
+    parser.add_argument('--train-subset', type=int, default=None,
+                        help='Use only N training tiles per fold (nested, stratified by '
+                             'change level). Default: all training tiles.')
+    parser.add_argument('--subset-seed', type=int, default=42,
+                        help='Seed for training-tile subsampling.')
 
     # Data overrides
     parser.add_argument('--splits-csv', type=str, default=None,
@@ -500,8 +507,9 @@ def main():
     # Auto-generate output directory if not specified
     if args.output_dir is None:
         fold_suffix = f"_fold{args.fold}" if args.fold is not None else ""
+        subset_suffix = f"_n{args.train_subset}" if args.train_subset is not None else ""
         args.output_dir = str(
-            PART2_DIR / "outputs" / "experiments" / f"{args.experiment}{fold_suffix}"
+            PART2_DIR / "outputs" / "experiments" / f"{args.experiment}{subset_suffix}{fold_suffix}"
         )
 
     train(args)

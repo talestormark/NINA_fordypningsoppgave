@@ -156,6 +156,7 @@ def validate(model, dataloader, criterion, device, epoch, total_epochs):
     model.eval()
     metrics = Metrics()
     total_loss = 0.0
+    per_tile_ious = []  # per-tile IoU, averaged into macro IoU (checkpoint-metric check)
 
     pbar = tqdm(dataloader, desc=f"Epoch {epoch}/{total_epochs} [Val]  ")
 
@@ -191,6 +192,25 @@ def validate(model, dataloader, criterion, device, epoch, total_epochs):
             else:
                 metrics.update(outputs, masks)
 
+            # Per-tile IoU for macro aggregation, using the same valid-pixel masking
+            # as the micro metric above. Checkpoint selection still uses the micro
+            # 'iou'; this only ADDS 'iou_macro' so both appear per-epoch in history.
+            if valid_mask is not None and valid_mask.float().mean() < 1.0:
+                vm = valid_mask.unsqueeze(1).bool()
+                eval_out = torch.where(vm, outputs, torch.tensor(-10.0, device=device))
+                eval_msk = masks * valid_mask
+            else:
+                eval_out = outputs
+                eval_msk = masks
+            preds_bin = (torch.sigmoid(eval_out) > 0.5).float()
+            for i in range(preds_bin.shape[0]):
+                p = preds_bin[i].reshape(-1)
+                t = eval_msk[i].reshape(-1)
+                tp = ((p == 1) & (t == 1)).sum().float()
+                fp = ((p == 1) & (t == 0)).sum().float()
+                fn = ((p == 0) & (t == 1)).sum().float()
+                per_tile_ious.append((tp / (tp + fp + fn + 1e-7)).item())
+
             # Update progress bar
             pbar.set_postfix({'loss': f'{loss.item():.4f}'})
 
@@ -198,6 +218,8 @@ def validate(model, dataloader, criterion, device, epoch, total_epochs):
     avg_loss = total_loss / len(dataloader)
     epoch_metrics = metrics.compute()
     epoch_metrics['loss'] = avg_loss
+    if per_tile_ious:
+        epoch_metrics['iou_macro'] = sum(per_tile_ious) / len(per_tile_ious)
 
     return epoch_metrics
 

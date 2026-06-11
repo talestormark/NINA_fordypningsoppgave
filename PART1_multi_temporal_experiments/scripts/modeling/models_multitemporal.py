@@ -952,13 +952,74 @@ class LSTMUNet(nn.Module):
         return output
 
 
+class PerPixelMLP(nn.Module):
+    """
+    Per-pixel multi-layer perceptron baseline.
+
+    Implemented as a stack of 1x1 convolutions, which is mathematically
+    equivalent to applying an MLP independently to each pixel's feature
+    vector. There is no spatial receptive field beyond a single pixel.
+    Used to isolate the contribution of spatial context in U-Net vs RF
+    comparisons (Chapter RQ3).
+
+    Args:
+        in_channels: Input bands per timestep.
+        hidden_dim: Hidden width of all intermediate layers.
+        num_layers: Total number of 1x1 conv layers including the output.
+        classes: Output classes (default 1 for binary).
+    """
+
+    def __init__(
+        self,
+        in_channels: int = 64,
+        hidden_dim: int = 256,
+        num_layers: int = 5,
+        classes: int = 1,
+        **kwargs,
+    ):
+        super().__init__()
+        self.in_channels = in_channels
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.classes = classes
+
+        # Bi-temporal input is concatenated along channels in forward()
+        stacked_channels = 2 * in_channels
+
+        layers = []
+        c_in = stacked_channels
+        for _ in range(num_layers - 1):
+            layers.append(nn.Conv2d(c_in, hidden_dim, kernel_size=1))
+            layers.append(nn.BatchNorm2d(hidden_dim))
+            layers.append(nn.ReLU(inplace=True))
+            c_in = hidden_dim
+        layers.append(nn.Conv2d(c_in, classes, kernel_size=1))
+        self.net = nn.Sequential(*layers)
+
+        self.name = f"PerPixelMLP_h{hidden_dim}_L{num_layers}"
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass.
+
+        Args:
+            x: (B, T=2, C, H, W) bi-temporal input.
+
+        Returns:
+            (B, classes, H, W) per-pixel logits.
+        """
+        B, T, C, H, W = x.shape
+        x_stacked = x.view(B, T * C, H, W)
+        return self.net(x_stacked)
+
+
 def create_multitemporal_model(model_name: str, **kwargs) -> nn.Module:
     """
     Factory function for multi-temporal models.
 
     Args:
         model_name: One of ['lstm_unet', 'early_fusion_unet', 'late_fusion_concat',
-                    'late_fusion_pool', 'conv3d_fusion']
+                    'late_fusion_pool', 'conv3d_fusion', 'per_pixel_mlp']
         **kwargs: Model-specific arguments
 
     Returns:
@@ -973,6 +1034,7 @@ def create_multitemporal_model(model_name: str, **kwargs) -> nn.Module:
         'late_fusion_concat': LateFusionConcat,
         'late_fusion_pool': LateFusionPool,
         'conv3d_fusion': Conv3DFusion,
+        'per_pixel_mlp': PerPixelMLP,
     }
 
     if model_name not in models:

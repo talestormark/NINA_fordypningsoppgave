@@ -12,10 +12,14 @@
 # Generic training script for Part II experiments
 # ============================================================================
 #
-# Usage:
+# Usage (basic, 2 positional args):
 #   sbatch --job-name=p2_A3_f0 train_experiment.sh A3_s2_9band 0
 #
-# Submit all 5 folds:
+# Usage with separate output name (3 positional args, for ablations):
+#   sbatch --job-name=p2_A3focal_f0 train_experiment.sh A3_s2_9band 0 A3_s2_9band_focal_only --loss focal
+#   # ↑ uses A3_s2_9band data config, saves outputs to A3_s2_9band_focal_only_fold0
+#
+# Submit all 5 folds (basic):
 #   for fold in 0 1 2 3 4; do
 #     sbatch --job-name=p2_A3_f${fold} train_experiment.sh A3_s2_9band $fold
 #   done
@@ -25,13 +29,24 @@
 #
 # ============================================================================
 
-EXPERIMENT=${1:?"Usage: sbatch train_experiment.sh EXPERIMENT FOLD [EXTRA_ARGS...]"}
-FOLD=${2:?"Usage: sbatch train_experiment.sh EXPERIMENT FOLD [EXTRA_ARGS...]"}
+EXPERIMENT=${1:?"Usage: sbatch train_experiment.sh EXPERIMENT FOLD [OUTPUT_NAME] [EXTRA_ARGS...]"}
+FOLD=${2:?"Usage: sbatch train_experiment.sh EXPERIMENT FOLD [OUTPUT_NAME] [EXTRA_ARGS...]"}
 shift 2
+
+# Optional 3rd positional: OUTPUT_NAME (used to name the output dir).
+# Defaults to EXPERIMENT, so old 2-arg invocations still work unchanged.
+if [[ -n "$1" && "$1" != -* ]]; then
+    OUTPUT_NAME="$1"
+    shift
+else
+    OUTPUT_NAME="$EXPERIMENT"
+fi
+
 EXTRA_ARGS="$@"
 
 echo "=========================================="
 echo "Part II: ${EXPERIMENT} fold ${FOLD}"
+echo "Output name: ${OUTPUT_NAME}"
 echo "=========================================="
 echo "Extra args: ${EXTRA_ARGS}"
 echo "Job started at: $(date)"
@@ -52,8 +67,8 @@ echo "GPU Information:"
 nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv
 echo ""
 
-# Output directory
-OUTPUT_DIR="PART2_spectral_spatial_resolution_experiments/outputs/experiments/${EXPERIMENT}_fold${FOLD}"
+# Output directory (uses OUTPUT_NAME, which defaults to EXPERIMENT)
+OUTPUT_DIR="PART2_spectral_spatial_resolution_experiments/outputs/experiments/${OUTPUT_NAME}_fold${FOLD}"
 echo "Output directory: $OUTPUT_DIR"
 echo ""
 

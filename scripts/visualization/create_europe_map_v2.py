@@ -2,7 +2,7 @@
 """
 Create a map of Europe showing all data_v2 tile locations.
 
-Adapted from create_europe_map.py for the expanded 264-tile dataset.
+Adapted from create_europe_map.py for the expanded 260-tile dataset.
 Uses the filtered geojson from data_v2/.
 
 Output:
@@ -15,8 +15,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+plt.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Latin Modern Roman", "Computer Modern Roman", "DejaVu Serif"],
+    "mathtext.fontset": "cm",
+})
+
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 GEOJSON_PATH = PROJECT_ROOT / "data_v2" / "land_take_bboxes_650m_v1_filtered.geojson"
+MASK_ANALYSIS_PATH = PROJECT_ROOT / "preprocessing" / "outputs" / "mask_analysis.csv"
 OUTPUT_DIR = PROJECT_ROOT / "REPORT" / "figures"
 
 
@@ -41,8 +48,8 @@ def load_data():
     tiles_gdf = tiles_gdf[~tiles_gdf['PLOTID'].isin(excluded)]
     print(f"  After excluding non-trainable: {len(tiles_gdf)} tiles")
 
-    # Load Europe boundaries from Natural Earth
-    url = "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
+    # Load Europe boundaries from Natural Earth (10m = finest resolution, for crisp borders)
+    url = "https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_countries.zip"
     print("  Downloading Natural Earth boundaries...")
     world = gpd.read_file(url)
 
@@ -160,26 +167,38 @@ def create_simple_map(tiles_gdf, europe):
 
 
 def create_colored_map(tiles_gdf, europe):
-    """Create a map colored by change type category."""
-    print("\nCreating colored map (by change type)...")
+    """Create a map colored by change level (low / moderate / high)."""
+    print("\nCreating colored map (by change level)...")
 
     tiles_centroids = tiles_gdf.copy()
     tiles_centroids['geometry'] = tiles_centroids.centroid
 
-    # Group minor categories
-    top_categories = ['Residential', 'Transport, Communication Networks, and Logistics',
-                      'Agriculture', 'Industry and Manufacturing', 'Uncertain']
-    tiles_centroids['category'] = tiles_centroids['change_type'].apply(
-        lambda x: x if x in top_categories else 'Other'
+    # Join change level from the coarse mask analysis (matches the change-ratio
+    # table in the thesis: low <5%, moderate 5-30%, high >=30%).
+    mask_stats = pd.read_csv(MASK_ANALYSIS_PATH)
+    mask_stats = (mask_stats[mask_stats['mask_type'] == 'coarse']
+                  [['refid', 'change_level']]
+                  .drop_duplicates('refid'))
+    tiles_centroids = tiles_centroids.merge(
+        mask_stats, left_on='PLOTID', right_on='refid', how='left'
     )
+    missing = tiles_centroids['change_level'].isna().sum()
+    if missing:
+        print(f"  WARNING: {missing} tiles have no change level; dropping them from the map")
+        tiles_centroids = tiles_centroids[tiles_centroids['change_level'].notna()]
 
     colors = {
-        'Residential': '#e41a1c',
-        'Transport, Communication Networks, and Logistics': '#377eb8',
-        'Agriculture': '#4daf4a',
-        'Industry and Manufacturing': '#984ea3',
-        'Uncertain': '#999999',
-        'Other': '#ff7f00',
+        # Okabe-Ito colourblind-safe palette: distinct under red-green CB and
+        # all saturated enough to read on the light-grey basemap.
+        'low': '#0072B2',       # blue
+        'moderate': '#E69F00',  # orange
+        'high': '#D55E00',      # vermillion
+    }
+
+    display_labels = {
+        'low': r"Low ($<$5%)",
+        'moderate': "Moderate (5-30%)",
+        'high': r"High ($\geq$30%)",
     }
 
     fig, ax = plt.subplots(figsize=(6, 6), dpi=300)
@@ -192,18 +211,20 @@ def create_colored_map(tiles_gdf, europe):
         zorder=1
     )
 
-    for category, color in colors.items():
-        subset = tiles_centroids[tiles_centroids['category'] == category]
+    # Plot low -> moderate -> high so the rare high-change tiles sit on top
+    for level in ['low', 'moderate', 'high']:
+        subset = tiles_centroids[tiles_centroids['change_level'] == level]
         if len(subset) == 0:
             continue
         subset.plot(
             ax=ax,
-            markersize=6,
-            color=color,
+            markersize=8,
+            color=colors[level],
             edgecolor="white",
             linewidth=0.2,
             alpha=0.85,
-            zorder=2
+            zorder=2,
+            label=display_labels[level],
         )
 
     ax.set_xlim(-12, 45)
@@ -218,6 +239,8 @@ def create_colored_map(tiles_gdf, europe):
     for spine in ax.spines.values():
         spine.set_edgecolor('0.5')
         spine.set_linewidth(0.5)
+
+    ax.legend(loc='upper left', frameon=False, fontsize=10)
 
     plt.tight_layout(pad=0.1)
 
@@ -254,7 +277,7 @@ def print_statistics(tiles_gdf):
 
 def main():
     print("=" * 60)
-    print("CREATING EUROPE MAP — data_v2 (264 tiles)")
+    print("CREATING EUROPE MAP — data_v2 (260 tiles)")
     print("=" * 60)
 
     tiles_gdf, europe = load_data()
@@ -274,7 +297,7 @@ def main():
     print("\nGenerated 3 versions in REPORT/figures/:")
     print("  1. study_area_map.pdf      — Clean for thesis (RECOMMENDED)")
     print("  2. study_area_map_simple    — With grid and axis labels")
-    print("  3. study_area_map_colored   — Colored by change type")
+    print("  3. study_area_map_colored   — Colored by change level")
 
 
 if __name__ == "__main__":

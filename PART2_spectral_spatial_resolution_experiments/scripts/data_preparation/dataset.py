@@ -723,6 +723,32 @@ def get_transform(is_train: bool = True, image_size: int = CROP_SIZE) -> A.Compo
 # ---------------------------------------------------------------------------
 
 
+def _subsample_train_refids(refids, levels, n, seed):
+    """Select ``n`` training refids, nested and stratified by change level.
+
+    The selection is deterministic given ``(refids, seed)`` and independent of
+    ``n``, so a smaller ``n`` yields a subset of a larger ``n`` (nested). Within
+    each change level the tiles are shuffled with ``seed``, then ordered by
+    fractional within-stratum rank so that any prefix is approximately
+    stratified across levels.
+    """
+    if n is None or n >= len(refids):
+        return list(refids)
+    rng = np.random.RandomState(seed)
+    by_level = {}
+    for r, lv in zip(refids, levels):
+        by_level.setdefault(lv, []).append(r)
+    ordered = []
+    for lv in sorted(by_level):
+        items = by_level[lv]
+        m = len(items)
+        perm = rng.permutation(m)
+        for rank, idx in enumerate(perm):
+            ordered.append(((rank + 0.5) / m, lv, items[idx]))
+    ordered.sort(key=lambda t: (t[0], t[1]))
+    return [r for _, _, r in ordered[:n]]
+
+
 def get_dataloaders(
     experiment: str,
     batch_size: int = 4,
@@ -731,6 +757,8 @@ def get_dataloaders(
     fold: int = None,
     num_folds: int = 5,
     seed: int = 42,
+    train_subset: int = None,
+    subset_seed: int = 42,
     use_precomputed_stats: bool = True,
     data_dir: str = None,
 ) -> Dict[str, DataLoader]:
@@ -745,6 +773,9 @@ def get_dataloaders(
         fold: Fold index (0..num_folds-1). None = original split.
         num_folds: Number of CV folds
         seed: Random seed for fold generation
+        train_subset: If set, use only this many training tiles per fold (nested,
+            stratified by change level). None = use all training tiles in the fold.
+        subset_seed: Seed for the training-tile subsampling.
         use_precomputed_stats: If True, load stats from JSON; else compute from fold
         data_dir: Data directory name under data/processed/ (overrides P2_DATA_DIR env var)
 
@@ -781,7 +812,18 @@ def get_dataloaders(
         train_refids = [trainval_refids[i] for i in train_idx]
         val_refids = [trainval_refids[i] for i in val_idx]
 
-        train_levels = [change_levels[i] for i in train_idx]
+        if train_subset is not None:
+            n_before = len(train_refids)
+            train_refids = _subsample_train_refids(
+                train_refids,
+                [refid_to_level[r] for r in train_refids],
+                n=train_subset,
+                seed=subset_seed,
+            )
+            print(f"  Subsampled training tiles: {n_before} -> {len(train_refids)} "
+                  f"(train_subset={train_subset}, subset_seed={subset_seed})")
+
+        train_levels = [refid_to_level[r] for r in train_refids]
         val_levels = [change_levels[i] for i in val_idx]
         print(f"\nStratified K-Fold CV: fold {fold}/{num_folds - 1}")
         print(f"  Train: {len(train_refids)} (low:{train_levels.count('low')} "

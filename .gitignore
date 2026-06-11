@@ -58,6 +58,8 @@ experiments/annotation_efficiency/outputs/
 
 # Documentation - keep structure, ignore PDFs
 *.pdf
+*.txt
+*.html
 docs_v1/papers/
 
 
