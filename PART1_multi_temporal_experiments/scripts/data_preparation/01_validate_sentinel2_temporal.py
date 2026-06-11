@@ -29,7 +29,7 @@ warnings.filterwarnings('ignore', category=rasterio.errors.NotGeoreferencedWarni
 repo_dir = Path(__file__).resolve().parent.parent.parent.parent
 
 try:
-    from config import DATA_DIR, REFID_LIST_FILE
+    from landtake.config import DATA_DIR, REFID_LIST_FILE
     from landtake.config import (
         SENTINEL2_DIR, SENTINEL2_PATTERN, SENTINEL2_BANDS,
         YEARS, QUARTERS, SENTINEL2_MIN_VALUE, SENTINEL2_MAX_VALUE,
