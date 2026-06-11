@@ -42,23 +42,13 @@ import torch
 from tqdm import tqdm
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-PART1_DIR = REPO_ROOT / "PART1_multi_temporal_experiments"
-PART2_DIR = REPO_ROOT / "PART2_spectral_spatial_resolution_experiments"
 AE_DIR = Path(__file__).resolve().parents[2]
 
-sys.path.insert(0, str(REPO_ROOT / "scripts" / "modeling"))
-from train import Metrics  # noqa: E402
+from landtake.metrics import Metrics
 
-sys.path.insert(0, str(PART1_DIR / "scripts" / "modeling"))
-from models_multitemporal import create_multitemporal_model  # noqa: E402
+from landtake.models.multitemporal import create_multitemporal_model  # noqa: E402
 
-_p2_spec = importlib.util.spec_from_file_location(
-    "p2_dataset", PART2_DIR / "scripts" / "data_preparation" / "dataset.py"
-)
-_p2_dataset = importlib.util.module_from_spec(_p2_spec)
-_p2_spec.loader.exec_module(_p2_dataset)
-EXPERIMENT_CONFIGS = _p2_dataset.EXPERIMENT_CONFIGS
-get_dataloaders = _p2_dataset.get_dataloaders
+from landtake.data.spectral import EXPERIMENT_CONFIGS, get_dataloaders
 
 
 def compute_sample_metrics(pred_logits, mask, threshold=0.5):

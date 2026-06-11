@@ -37,13 +37,7 @@ from landtake.metrics import Metrics
 
 from landtake.models.multitemporal import create_multitemporal_model
 
-_p2_spec = importlib.util.spec_from_file_location(
-    "p2_dataset", PART2_DIR / "scripts" / "data_preparation" / "dataset.py"
-)
-_p2_dataset = importlib.util.module_from_spec(_p2_spec)
-_p2_spec.loader.exec_module(_p2_dataset)
-EXPERIMENT_CONFIGS = _p2_dataset.EXPERIMENT_CONFIGS
-get_dataloaders = _p2_dataset.get_dataloaders
+from landtake.data.spectral import EXPERIMENT_CONFIGS, get_dataloaders
 
 EXPERIMENTS_DIR = PART2_DIR / "outputs" / "experiments"
 NUM_FOLDS = 5

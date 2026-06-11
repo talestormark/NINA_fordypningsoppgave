@@ -24,29 +24,20 @@ import importlib.util
 # Path setup
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parents[4]
-PART1_DIR = REPO_ROOT / "PART1_multi_temporal_experiments"
-PART2_DIR = REPO_ROOT / "PART2_spectral_spatial_resolution_experiments"
 AE_DIR = Path(__file__).resolve().parents[2]
 
-sys.path.insert(0, str(REPO_ROOT / "scripts" / "modeling"))
-from train import Metrics, FocalDiceLoss
-from logger import WandbLogger  # noqa: F401
+from landtake.losses import FocalDiceLoss
+from landtake.metrics import Metrics
+from landtake.logger import WandbLogger  # noqa: F401
 
-sys.path.insert(0, str(PART1_DIR / "scripts" / "modeling"))
-from models_multitemporal import create_multitemporal_model, count_parameters
+from landtake.models.multitemporal import create_multitemporal_model, count_parameters
 
 # Reuse the masked loss, train_one_epoch, validate from train_masked_unet
 sys.path.insert(0, str(AE_DIR / "scripts" / "modeling"))
 from train_masked_unet import MaskedFocalDiceLoss, train_one_epoch, validate
 
 # Part 2 dataset
-_p2_spec = importlib.util.spec_from_file_location(
-    "p2_dataset", PART2_DIR / "scripts" / "data_preparation" / "dataset.py"
-)
-_p2_dataset = importlib.util.module_from_spec(_p2_spec)
-_p2_spec.loader.exec_module(_p2_dataset)
-EXPERIMENT_CONFIGS = _p2_dataset.EXPERIMENT_CONFIGS
-get_dataloaders = _p2_dataset.get_dataloaders
+from landtake.data.spectral import EXPERIMENT_CONFIGS, get_dataloaders
 
 
 def main():

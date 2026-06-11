@@ -28,25 +28,16 @@ import importlib.util
 # Path setup
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parents[4]
-PART1_DIR = REPO_ROOT / "PART1_multi_temporal_experiments"
-PART2_DIR = REPO_ROOT / "PART2_spectral_spatial_resolution_experiments"
 AE_DIR = Path(__file__).resolve().parents[2]  # experiments/annotation_efficiency
 
-sys.path.insert(0, str(REPO_ROOT / "scripts" / "modeling"))
-from train import FocalLoss, DiceLoss, Metrics
-from logger import WandbLogger
+from landtake.losses import FocalLoss, DiceLoss
+from landtake.metrics import Metrics
+from landtake.logger import WandbLogger
 
-sys.path.insert(0, str(PART1_DIR / "scripts" / "modeling"))
-from models_multitemporal import create_multitemporal_model, count_parameters
+from landtake.models.multitemporal import create_multitemporal_model, count_parameters
 
 # Part 2 dataset (via importlib to avoid name collision)
-_p2_spec = importlib.util.spec_from_file_location(
-    "p2_dataset", PART2_DIR / "scripts" / "data_preparation" / "dataset.py"
-)
-_p2_dataset = importlib.util.module_from_spec(_p2_spec)
-_p2_spec.loader.exec_module(_p2_dataset)
-EXPERIMENT_CONFIGS = _p2_dataset.EXPERIMENT_CONFIGS
-get_dataloaders = _p2_dataset.get_dataloaders
+from landtake.data.spectral import EXPERIMENT_CONFIGS, get_dataloaders
 
 SPLITS_CSV = REPO_ROOT / "preprocessing" / "outputs" / "splits" / "unified" / "split_info.csv"
 EPS = 1e-7
@@ -246,7 +237,7 @@ def main():
         focal_alpha=0.75, focal_gamma=2.0,
         lambda_focal=1.0, lambda_dice=1.0,
     )
-    from train import FocalDiceLoss
+    from landtake.losses import FocalDiceLoss
     criterion_dense = FocalDiceLoss(
         focal_alpha=0.75, focal_gamma=2.0,
         lambda_focal=1.0, lambda_dice=1.0,
