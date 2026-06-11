@@ -29,17 +29,15 @@ from datetime import datetime
 import importlib.util
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-PART1_DIR = REPO_ROOT / "PART1_multi_temporal_experiments"
 PART2_DIR = REPO_ROOT / "PART2_spectral_spatial_resolution_experiments"
 
 # 1. Baseline utilities — needs scripts/modeling on sys.path for internal imports
-sys.path.insert(0, str(REPO_ROOT / "scripts" / "modeling"))
-from train import FocalLoss, DiceLoss, FocalDiceLoss, Metrics
-from logger import WandbLogger
+from landtake.losses import FocalLoss, DiceLoss, FocalDiceLoss
+from landtake.metrics import Metrics
+from landtake.logger import WandbLogger
 
 # 2. Part I models — needs Part I modeling dir on sys.path (for convlstm import)
-sys.path.insert(0, str(PART1_DIR / "scripts" / "modeling"))
-from models_multitemporal import create_multitemporal_model, count_parameters
+from landtake.models.multitemporal import create_multitemporal_model, count_parameters
 
 # 3. Part II dataset — use importlib to avoid collision with baseline dataset.py
 _p2_spec = importlib.util.spec_from_file_location(

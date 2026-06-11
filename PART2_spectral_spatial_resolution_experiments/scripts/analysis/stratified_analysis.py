@@ -28,14 +28,11 @@ import importlib.util
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-PART1_DIR = REPO_ROOT / "PART1_multi_temporal_experiments"
 PART2_DIR = REPO_ROOT / "PART2_spectral_spatial_resolution_experiments"
 
-sys.path.insert(0, str(REPO_ROOT / "scripts" / "modeling"))
-from train import Metrics
+from landtake.metrics import Metrics
 
-sys.path.insert(0, str(PART1_DIR / "scripts" / "modeling"))
-from models_multitemporal import create_multitemporal_model
+from landtake.models.multitemporal import create_multitemporal_model
 
 _p2_spec = importlib.util.spec_from_file_location(
     "p2_dataset", PART2_DIR / "scripts" / "data_preparation" / "dataset.py"
