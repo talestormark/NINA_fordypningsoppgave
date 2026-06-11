@@ -368,7 +368,7 @@ def main():
     print(f"\nLoading training split from {TRAIN_SPLIT_FILE}...")
     if not TRAIN_SPLIT_FILE.exists():
         print(f"ERROR: Training split file not found: {TRAIN_SPLIT_FILE}")
-        print("Please run scripts/modeling/01_create_splits.py first")
+        print("Please generate the splits first (preprocessing/04b_create_unified_splits.py)")
         return
 
     train_refids = load_train_refids(TRAIN_SPLIT_FILE)
